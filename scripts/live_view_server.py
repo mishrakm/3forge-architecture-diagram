@@ -345,6 +345,65 @@ def query_table_data(
             connection.close()
 
 
+def query_execute(
+    instance_cfg: dict[str, Any],
+    args: argparse.Namespace,
+    sql: str,
+) -> dict[str, Any]:
+    query = (sql or "").strip()
+    if not query:
+        raise ValueError("Query is empty")
+
+    # Keep this to one statement per request.
+    if ";" in query[:-1]:
+        raise ValueError("Only a single SQL statement is allowed per execution")
+    if query.endswith(";"):
+        query = query[:-1].strip()
+
+    started = time.time()
+    connection = None
+    cursor = None
+    try:
+        connection = _make_connection(instance_cfg, args)
+        cursor = connection.cursor()
+        cursor.execute(query)
+        elapsed_ms = int((time.time() - started) * 1000)
+
+        has_result_set = bool(getattr(cursor, "description", None))
+        if has_result_set:
+            columns = [str(d[0]) for d in (cursor.description or [])]
+            rows = normalize_rows(cursor.fetchall())
+            max_rows = 2000
+            clipped = len(rows) > max_rows
+            rows = rows[:max_rows]
+            return {
+                "instance": str(instance_cfg.get("name") or instance_cfg.get("url")),
+                "sql": query,
+                "elapsed_ms": elapsed_ms,
+                "has_result_set": True,
+                "columns": columns,
+                "rows": rows,
+                "row_count": len(rows),
+                "rows_clipped": clipped,
+                "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+            }
+
+        rowcount = getattr(cursor, "rowcount", None)
+        return {
+            "instance": str(instance_cfg.get("name") or instance_cfg.get("url")),
+            "sql": query,
+            "elapsed_ms": elapsed_ms,
+            "has_result_set": False,
+            "affected_rows": int(rowcount) if isinstance(rowcount, int) else rowcount,
+            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        }
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None:
+            connection.close()
+
+
 def query_drop(
     instance_cfg: dict[str, Any],
     args: argparse.Namespace,
@@ -443,6 +502,20 @@ class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(405)
         self.end_headers()
 
+    def _read_json_body(self) -> dict[str, Any]:
+        length_header = self.headers.get("Content-Length") or "0"
+        try:
+            length = int(length_header)
+        except ValueError as exc:  # noqa: BLE001
+            raise ValueError("Invalid Content-Length") from exc
+        if length <= 0:
+            return {}
+        raw = self.rfile.read(length)
+        try:
+            return json.loads(raw.decode("utf-8"))
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError("Invalid JSON payload") from exc
+
     def handle_api_post(self, path: str) -> None:
         try:
             prefix = "/api/instance/"
@@ -456,6 +529,18 @@ class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
                         self.write_json(404, {"error": f"Unknown instance: {instance_name}"})
                         return
                     result = query_drop(cfg, self.app.generator_args, obj_type, obj_name)
+                    self.write_json(200, result)
+                    return
+
+                if len(parts) == 2 and parts[1] == "query":
+                    instance_name, _ = parts
+                    cfg = self.app.instance_map.get(instance_name.lower())
+                    if cfg is None:
+                        self.write_json(404, {"error": f"Unknown instance: {instance_name}"})
+                        return
+                    payload = self._read_json_body()
+                    sql = str(payload.get("sql") or "")
+                    result = query_execute(cfg, self.app.generator_args, sql)
                     self.write_json(200, result)
                     return
             self.write_json(404, {"error": "Unknown API endpoint"})
