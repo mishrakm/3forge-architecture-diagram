@@ -7,6 +7,7 @@ import argparse
 import http.server
 import json
 import os
+import re
 import socket
 import time
 from dataclasses import dataclass
@@ -50,7 +51,7 @@ ALLOWED_VIEWS = {
     "external_mappings",
 }
 
-ALLOWED_DESCRIBE_TYPES = {"table", "trigger", "procedure", "timer"}
+ALLOWED_DESCRIBE_TYPES = {"table", "trigger", "procedure", "method", "timer"}
 
 
 @dataclass
@@ -71,6 +72,12 @@ def parse_args() -> argparse.Namespace:
         "--instances-config",
         default=DEFAULTS["instances_config"],
         help="Path to instances.json used by live API endpoints.",
+    )
+    parser.add_argument(
+        "--adapter",
+        choices=["jdbc", "telnet"],
+        default=os.getenv("AMI_DB_ADAPTER", DEFAULTS.get("adapter", "jdbc")),
+        help="Default adapter for instances that omit adapter (jdbc|telnet).",
     )
     parser.add_argument(
         "--driver-class",
@@ -96,6 +103,33 @@ def parse_args() -> argparse.Namespace:
         "--jar-path",
         default=os.getenv("AMI_DB_JAR", DEFAULTS["jar_path"]),
         help="Fallback JDBC jar for instances that omit jar_path.",
+    )
+    parser.add_argument(
+        "--telnet-host",
+        default=os.getenv("AMI_TELNET_HOST"),
+        help="Fallback telnet host for instances that omit telnet_host.",
+    )
+    parser.add_argument(
+        "--telnet-port",
+        type=int,
+        default=int(os.getenv("AMI_TELNET_PORT", "0")) or None,
+        help="Fallback telnet port for instances that omit telnet_port. If omitted, x280 -> x290 is applied.",
+    )
+    parser.add_argument(
+        "--telnet-login-command",
+        default=os.getenv("AMI_TELNET_LOGIN_COMMAND", "Login"),
+        help="Username command for telnet sessions, e.g. 'Login'.",
+    )
+    parser.add_argument(
+        "--telnet-prompt",
+        default=os.getenv("AMI_TELNET_PROMPT", ">"),
+        help="Prompt marker used to detect command completion in telnet mode.",
+    )
+    parser.add_argument(
+        "--telnet-timeout-sec",
+        type=float,
+        default=float(os.getenv("AMI_TELNET_TIMEOUT_SEC", str(DEFAULTS.get("telnet_timeout_sec", 6.0)))),
+        help="Telnet read timeout in seconds (fail-fast for missing prompt/login).",
     )
     parser.add_argument(
         "--java-home",
@@ -208,25 +242,14 @@ def query_section(instance_cfg: dict[str, Any], args: argparse.Namespace, sectio
     if section not in ALLOWED_VIEWS:
         raise ValueError(f"Unsupported section: {section}")
 
-    driver_class = str(instance_cfg.get("driver_class") or args.driver_class)
     url = str(instance_cfg.get("url") or args.url)
     user = str(instance_cfg.get("user") or args.user)
-    jar_path = str(instance_cfg.get("jar_path") or args.jar_path)
-    java_home = str(instance_cfg.get("java_home") or args.java_home)
-    password = resolve_instance_password(instance_cfg, args.password)
 
     started = time.time()
     connection = None
     cursor = None
     try:
-        connection = connect_db(
-            driver_class=driver_class,
-            url=url,
-            user=user,
-            password=password,
-            jar_path=jar_path,
-            java_home=java_home,
-        )
+        connection = _make_connection(instance_cfg, args)
         cursor = connection.cursor()
 
         if section == "overview":
@@ -275,12 +298,18 @@ def _validate_obj_name(name: str) -> None:
 
 def _make_connection(instance_cfg: dict[str, Any], args: argparse.Namespace):  # type: ignore[return]
     return connect_db(
+        adapter=str(instance_cfg.get("adapter") or args.adapter or "jdbc").lower(),
         driver_class=str(instance_cfg.get("driver_class") or args.driver_class),
         url=str(instance_cfg.get("url") or args.url),
         user=str(instance_cfg.get("user") or args.user),
         password=resolve_instance_password(instance_cfg, args.password),
         jar_path=str(instance_cfg.get("jar_path") or args.jar_path),
         java_home=str(instance_cfg.get("java_home") or args.java_home),
+        telnet_host=(str(instance_cfg.get("telnet_host")) if instance_cfg.get("telnet_host") else args.telnet_host),
+        telnet_port=(int(instance_cfg.get("telnet_port")) if instance_cfg.get("telnet_port") else args.telnet_port),
+        telnet_login_command=str(instance_cfg.get("telnet_login_command") or args.telnet_login_command),
+        telnet_prompt=str(instance_cfg.get("telnet_prompt") or args.telnet_prompt),
+        telnet_timeout_sec=float(instance_cfg.get("telnet_timeout_sec") or args.telnet_timeout_sec),
     )
 
 
@@ -357,25 +386,13 @@ def query_describe(
     if obj_type not in ALLOWED_DESCRIBE_TYPES:
         raise ValueError(f"Unsupported describe type: {obj_type!r}")
 
-    driver_class = str(instance_cfg.get("driver_class") or args.driver_class)
     url = str(instance_cfg.get("url") or args.url)
-    user = str(instance_cfg.get("user") or args.user)
-    jar_path = str(instance_cfg.get("jar_path") or args.jar_path)
-    java_home = str(instance_cfg.get("java_home") or args.java_home)
-    password = resolve_instance_password(instance_cfg, args.password)
 
     started = time.time()
     connection = None
     cursor = None
     try:
-        connection = connect_db(
-            driver_class=driver_class,
-            url=url,
-            user=user,
-            password=password,
-            jar_path=jar_path,
-            java_home=java_home,
-        )
+        connection = _make_connection(instance_cfg, args)
         cursor = connection.cursor()
         cursor.execute(f"describe {obj_type} {obj_name}")
         rows = cursor.fetchall()
@@ -540,11 +557,17 @@ def main() -> int:
         raise SystemExit("Instances config is empty.")
 
     generator_args = argparse.Namespace(
+        adapter=args.adapter,
         driver_class=args.driver_class,
         url=args.url,
         user=args.user,
         password=args.password,
         jar_path=args.jar_path,
+        telnet_host=args.telnet_host,
+        telnet_port=args.telnet_port,
+        telnet_login_command=args.telnet_login_command,
+        telnet_prompt=args.telnet_prompt,
+        telnet_timeout_sec=args.telnet_timeout_sec,
         java_home=args.java_home,
     )
     instance_map = build_instance_map(instances)

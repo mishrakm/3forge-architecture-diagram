@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Table Data Viewer</title>
+  <style>
+    :root { --bg:#f6f3ed; --card:#fff; --ink:#2b2926; --muted:#6a635b; --line:#e7dfd4; --brand:#0b728f; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Segoe UI,Tahoma,sans-serif; background:var(--bg); color:var(--ink); }
+    .header { background:#fff; border-bottom:1px solid var(--line); padding:12px 20px; display:flex; align-items:center; gap:16px; }
+    .header h1 { margin:0; font-size:18px; }
+    .header .sub { color:var(--muted); font-size:12px; margin-top:2px; }
+    .back { color:var(--brand); text-decoration:none; font-size:13px; }
+    .back:hover { text-decoration:underline; }
+    .content { padding:16px 20px; }
+    .meta-bar { display:flex; gap:16px; margin-bottom:12px; font-size:12px; color:var(--muted); }
+    .meta-bar b { color:var(--ink); }
+    .tools { display:grid; grid-template-columns: minmax(180px, 260px) 1fr auto; gap:10px; align-items:end; margin:8px 0 12px; }
+    .tools label { font-size:11px; color:var(--muted); display:block; margin-bottom:4px; text-transform:uppercase; }
+    .tools select, .tools input { width:100%; border:1px solid var(--line); border-radius:8px; padding:7px 9px; font-size:12px; background:#fff; color:var(--ink); }
+    .tools button { border:1px solid var(--line); border-radius:8px; padding:7px 10px; font-size:12px; background:#fff; cursor:pointer; color:var(--ink); }
+    .tools button:hover { border-color:#cdbfae; }
+    .tbl-wrap { overflow:auto; border:1px solid var(--line); border-radius:10px; max-height:calc(100vh - 160px); }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    th,td { border-bottom:1px solid #f2ece2; text-align:left; padding:7px 10px; vertical-align:top; white-space:nowrap; }
+    th { background:#f9f5ef; position:sticky; top:0; z-index:1; font-weight:700; user-select:none; cursor:pointer; }
+    th .sort-mark { margin-left:5px; color:#8f8a84; font-size:10px; }
+    td { max-width:320px; overflow:hidden; text-overflow:ellipsis; }
+    td:hover { white-space:normal; overflow:visible; word-break:break-all; max-width:none; }
+    tbody tr:nth-child(even) { background:#dff0f5; }
+    tbody tr:nth-child(odd)  { background:#fff; }
+    .null-val { color:#bbb; font-style:italic; }
+    .loading { padding:32px; text-align:center; color:var(--muted); }
+    .error { padding:24px; background:#fff1ef; border:1px solid #f0c2bc; border-radius:10px; color:#7a1f1f; }
+    @media (max-width: 900px) { .tools { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1 id="pageTitle">Table Data Viewer</h1>
+      <div class="sub" id="pageSub"></div>
+    </div>
+    <a class="back" id="backLink" href="#">&larr; Back to Live Viewer</a>
+  </div>
+  <div class="content">
+    <div class="meta-bar" id="metaBar"></div>
+    <div class="tools" id="tools" style="display:none;">
+      <div>
+        <label for="filterCol">Filter column</label>
+        <select id="filterCol"></select>
+      </div>
+      <div>
+        <label for="filterText">Contains text</label>
+        <input id="filterText" type="text" placeholder="Type to filter rows...">
+      </div>
+      <div>
+        <button id="clearFilter" type="button">Clear Filter</button>
+      </div>
+    </div>
+    <div id="output"><div class="loading">Loading&hellip;</div></div>
+  </div>
+
+  <script>
+    const esc = (v) => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+    const params = new URLSearchParams(window.location.search);
+    const instance = params.get('instance') || '';
+    const table = params.get('table') || '';
+
+    document.getElementById('pageTitle').textContent = table || 'Table Data Viewer';
+    document.getElementById('pageSub').textContent = instance ? `Instance: ${instance}` : '';
+    document.getElementById('backLink').href = `/ami_flow_live.html?instance=${encodeURIComponent(instance)}&view=tables`;
+
+    const output = document.getElementById('output');
+    const metaBar = document.getElementById('metaBar');
+    const tools = document.getElementById('tools');
+    const filterColEl = document.getElementById('filterCol');
+    const filterTextEl = document.getElementById('filterText');
+    const clearFilterEl = document.getElementById('clearFilter');
+
+    const state = {
+      cols: [],
+      rows: [],
+      sortIndex: null,
+      sortDir: 'asc',
+      filterCol: -1,
+      filterText: '',
+      elapsed: null,
+      generatedAt: '',
+    };
+
+    const isNumericText = (v) => /^-?\d+(\.\d+)?$/.test(String(v).trim());
+
+    const compareCell = (a, b) => {
+      if (a === null || a === undefined) return (b === null || b === undefined) ? 0 : -1;
+      if (b === null || b === undefined) return 1;
+      const sa = String(a);
+      const sb = String(b);
+      if (isNumericText(sa) && isNumericText(sb)) return Number(sa) - Number(sb);
+      return sa.localeCompare(sb, undefined, { sensitivity: 'base', numeric: true });
+    };
+
+    const buildSortMarker = (idx) => {
+      if (state.sortIndex !== idx) return '<span class="sort-mark">↕</span>';
+      return state.sortDir === 'asc' ? '<span class="sort-mark">▲</span>' : '<span class="sort-mark">▼</span>';
+    };
+
+    const filteredRows = () => {
+      const needle = state.filterText.trim().toLowerCase();
+      if (!needle) return [...state.rows];
+      return state.rows.filter((row) => {
+        if (!Array.isArray(row)) return false;
+        if (state.filterCol >= 0) {
+          return String(row[state.filterCol] ?? '').toLowerCase().includes(needle);
+        }
+        return row.some((cell) => String(cell ?? '').toLowerCase().includes(needle));
+      });
+    };
+
+    const sortedRows = (rowsIn) => {
+      if (state.sortIndex === null) return rowsIn;
+      const idx = state.sortIndex;
+      const dir = state.sortDir === 'asc' ? 1 : -1;
+      return [...rowsIn].sort((r1, r2) => dir * compareCell(r1[idx], r2[idx]));
+    };
+
+    const draw = () => {
+      const rows = sortedRows(filteredRows());
+      const cols = state.cols;
+      const th = cols.map((c, i) => `<th data-col="${i}" title="Click to sort by ${esc(c)}">${esc(c)}${buildSortMarker(i)}</th>`).join('');
+      const colCount = cols.length;
+      const tr = rows.map((row) => {
+        const cells = Array.isArray(row)
+          ? row.map((v) => v === null
+              ? `<td class="null-val">null</td>`
+              : `<td title="${esc(String(v))}">${esc(String(v))}</td>`)
+          : Array.from({length: colCount}, () => '<td></td>');
+        return `<tr>${cells.join('')}</tr>`;
+      }).join('');
+
+      output.innerHTML = `<div class="tbl-wrap"><table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
+      metaBar.innerHTML = `<span><b>Rows:</b> ${rows.length} shown / ${state.rows.length} total${state.rows.length === 1000 ? ' (limit 1000)' : ''}</span>
+        <span><b>Columns:</b> ${cols.length}</span>
+        <span><b>Query time:</b> ${state.elapsed} ms</span>
+        <span><b>Generated:</b> ${esc(state.generatedAt || '')}</span>`;
+    };
+
+    output.addEventListener('click', (e) => {
+      const th = e.target.closest('th[data-col]');
+      if (!th) return;
+      const idx = Number(th.dataset.col);
+      if (!Number.isFinite(idx)) return;
+      if (state.sortIndex === idx) {
+        state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.sortIndex = idx;
+        state.sortDir = 'asc';
+      }
+      draw();
+    });
+
+    filterColEl.addEventListener('change', () => {
+      state.filterCol = Number(filterColEl.value);
+      draw();
+    });
+
+    filterTextEl.addEventListener('input', () => {
+      state.filterText = filterTextEl.value;
+      draw();
+    });
+
+    clearFilterEl.addEventListener('click', () => {
+      filterTextEl.value = '';
+      filterColEl.value = '-1';
+      state.filterText = '';
+      state.filterCol = -1;
+      draw();
+    });
+
+    if (!instance || !table) {
+      output.innerHTML = '<div class="error">Missing <code>instance</code> or <code>table</code> URL parameter.</div>';
+    } else {
+      const url = `/api/instance/${encodeURIComponent(instance)}/table_data/${encodeURIComponent(table)}`;
+      const started = Date.now();
+
+      fetch(url, { cache: 'no-store' })
+        .then(async (res) => {
+          const raw = await res.text();
+          let data;
+          try { data = JSON.parse(raw); } catch (_) { throw new Error('Server returned non-JSON response.'); }
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          return data;
+        })
+        .then((data) => {
+          const cols = Array.isArray(data.columns) ? data.columns : [];
+          const rows = Array.isArray(data.rows) ? data.rows : [];
+          const elapsed = data.elapsed_ms != null ? data.elapsed_ms : (Date.now() - started);
+
+          if (rows.length === 0) {
+            output.innerHTML = '<div class="loading">Table is empty.</div>';
+            return;
+          }
+
+          state.cols = cols;
+          state.rows = rows;
+          state.elapsed = elapsed;
+          state.generatedAt = data.generated_at_utc || '';
+          state.sortIndex = null;
+          state.sortDir = 'asc';
+          state.filterCol = -1;
+          state.filterText = '';
+
+          filterColEl.innerHTML = ['<option value="-1">All columns</option>', ...cols.map((c, i) => `<option value="${i}">${esc(c)}</option>`)].join('');
+          filterColEl.value = '-1';
+          filterTextEl.value = '';
+          tools.style.display = 'grid';
+
+          draw();
+        })
+        .catch((err) => {
+          output.innerHTML = `<div class="error">${esc(err.message || String(err))}</div>`;
+        });
+    }
+  </script>
+</body>
+</html>

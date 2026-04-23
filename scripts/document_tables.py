@@ -8,7 +8,9 @@ import itertools
 import json
 import os
 import re
+import socket
 import sys
+import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,6 +21,7 @@ import jpype
 
 
 DEFAULTS = {
+    "adapter": "jdbc",
     "driver_class": "com.f1.ami.amidb.jdbc.AmiDbJdbcDriver",
     "url": "jdbc:amisql:125.125.126.5:3280",
     "user": "pwadmin",
@@ -46,6 +49,7 @@ DEFAULTS = {
     "output_multi_dashboard": "./docs/ami_flow_viewer.html",
     "output_multi_json": "./docs/ami_flow_viewer.json",
     "max_instances": 20,
+    "telnet_timeout_sec": 6.0,
 }
 
 
@@ -53,11 +57,44 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="AMI Flow Viewer generator for one or many AMI DB instances."
     )
+    parser.add_argument(
+        "--adapter",
+        choices=["jdbc", "telnet"],
+        default=os.getenv("AMI_DB_ADAPTER", DEFAULTS["adapter"]),
+        help="Connection adapter: jdbc (default) or telnet.",
+    )
     parser.add_argument("--driver-class", default=os.getenv("AMI_DB_DRIVER", DEFAULTS["driver_class"]))
     parser.add_argument("--url", default=os.getenv("AMI_DB_URL", DEFAULTS["url"]))
     parser.add_argument("--user", default=os.getenv("AMI_DB_USER", DEFAULTS["user"]))
     parser.add_argument("--password", default=os.getenv("AMI_DB_PASSWORD"))
     parser.add_argument("--jar-path", default=os.getenv("AMI_DB_JAR", DEFAULTS["jar_path"]))
+    parser.add_argument(
+        "--telnet-host",
+        default=os.getenv("AMI_TELNET_HOST"),
+        help="Telnet host. If omitted, host from --url may be used.",
+    )
+    parser.add_argument(
+        "--telnet-port",
+        type=int,
+        default=int(os.getenv("AMI_TELNET_PORT", "0")) or None,
+        help="Telnet port. If omitted, defaults to x290 when URL port is x280 (else URL port).",
+    )
+    parser.add_argument(
+        "--telnet-login-command",
+        default=os.getenv("AMI_TELNET_LOGIN_COMMAND", "Login"),
+        help="Command prefix used to submit username, e.g. 'Login'.",
+    )
+    parser.add_argument(
+        "--telnet-prompt",
+        default=os.getenv("AMI_TELNET_PROMPT", ">"),
+        help="Prompt marker used to detect command completion in telnet mode.",
+    )
+    parser.add_argument(
+        "--telnet-timeout-sec",
+        type=float,
+        default=float(os.getenv("AMI_TELNET_TIMEOUT_SEC", str(DEFAULTS["telnet_timeout_sec"]))),
+        help="Telnet read timeout in seconds (fail-fast for missing prompt/login).",
+    )
     parser.add_argument("--output-md", default=DEFAULTS["output_md"])
     parser.add_argument("--output-json", default=DEFAULTS["output_json"])
     parser.add_argument("--output-dashboard", default=DEFAULTS["output_dashboard"])
@@ -125,14 +162,250 @@ def ensure_jvm(java_home: str, classpath: list[str]) -> None:
     jpype.startJVM(detected, classpath=classpath)
 
 
+def _extract_host_port(url: str) -> tuple[str | None, int | None]:
+    if not url:
+        return None, None
+    if url.startswith("jdbc:"):
+        parts = url.split(":")
+        if len(parts) >= 2 and parts[-1].isdigit():
+            return parts[-2], int(parts[-1])
+    match = re.search(r"([^:/]+):(\d+)$", url)
+    if match:
+        return match.group(1), int(match.group(2))
+    return None, None
+
+
+def _derive_default_telnet_port(source_port: int | None) -> int | None:
+    if source_port is None:
+        return None
+    # Common setup here: AMI DB on x280 and telnet shell on x290.
+    if source_port % 100 == 80:
+        return source_port + 10
+    return source_port
+
+
+def _parse_delimited(lines: list[str], delimiter: str) -> tuple[list[tuple[Any, ...]], list[tuple[str, ...]]]:
+    if not lines:
+        return [], []
+    headers = [h.strip() for h in lines[0].split(delimiter)]
+    rows: list[tuple[Any, ...]] = []
+    for ln in lines[1:]:
+        if not ln.strip():
+            continue
+        parts = [p.strip() for p in ln.split(delimiter)]
+        if len(parts) < len(headers):
+            parts += [""] * (len(headers) - len(parts))
+        rows.append(tuple(parts[: len(headers)]))
+    desc = [(h,) for h in headers]
+    return rows, desc
+
+
+def _parse_whitespace_table(lines: list[str]) -> tuple[list[tuple[Any, ...]], list[tuple[str, ...]]]:
+    if not lines:
+        return [], []
+    header = [h.strip() for h in re.split(r"\s{2,}", lines[0].strip()) if h.strip()]
+    if len(header) < 2:
+        return [], []
+    rows: list[tuple[Any, ...]] = []
+    for ln in lines[1:]:
+        if not ln.strip():
+            continue
+        parts = [p.strip() for p in re.split(r"\s{2,}", ln.strip())]
+        if len(parts) < len(header):
+            parts += [""] * (len(header) - len(parts))
+        rows.append(tuple(parts[: len(header)]))
+    return rows, [(h,) for h in header]
+
+
+class TelnetAmiClient:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        user: str,
+        password: str,
+        *,
+        login_command: str = "Login",
+        prompt: str = ">",
+        timeout_sec: float = 20.0,
+    ) -> None:
+        self.host = host
+        self.port = port
+        self.user = user
+        self.password = password
+        self.login_command = login_command
+        self.prompt = prompt
+        self.timeout_sec = timeout_sec
+        self.sock = socket.create_connection((host, port), timeout=timeout_sec)
+        self.sock.settimeout(timeout_sec)
+        self._login()
+
+    def close(self) -> None:
+        try:
+            self.sock.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _send_line(self, text: str) -> None:
+        self.sock.sendall((text + "\n").encode("utf-8", errors="ignore"))
+
+    def _read_until_tokens(
+        self,
+        tokens: list[str],
+        timeout_sec: float | None = None,
+        *,
+        allow_idle_on_data: bool = False,
+        idle_grace_sec: float = 0.8,
+    ) -> str:
+        deadline = time.time() + (timeout_sec if timeout_sec is not None else self.timeout_sec)
+        chunks: list[bytes] = []
+        last_data_at: float | None = None
+        while time.time() < deadline:
+            try:
+                data = self.sock.recv(4096)
+            except TimeoutError:
+                if allow_idle_on_data and chunks and last_data_at is not None:
+                    if time.time() - last_data_at >= idle_grace_sec:
+                        return b"".join(chunks).decode("utf-8", errors="ignore")
+                continue
+            if not data:
+                break
+            chunks.append(data)
+            last_data_at = time.time()
+            txt = b"".join(chunks).decode("utf-8", errors="ignore")
+            txt_lower = txt.lower()
+            if any(t.lower() in txt_lower for t in tokens):
+                return txt
+        text = b"".join(chunks).decode("utf-8", errors="ignore")
+        tokens_joined = ", ".join(tokens)
+        preview = text[-250:].replace("\n", " ").replace("\r", " ") if text else "<no data>"
+        raise TimeoutError(
+            f"Telnet timeout waiting for tokens [{tokens_joined}] from {self.host}:{self.port}. "
+            f"Prompt/login may be incorrect. Last output: {preview}"
+        )
+
+    def _login(self) -> None:
+        try:
+            pre = self._read_until_tokens(
+                ["login", "username", "password", self.prompt],
+                timeout_sec=min(8.0, self.timeout_sec),
+            )
+        except TimeoutError:
+            # Some endpoints don't print an initial banner/prompt; proceed by sending login command.
+            pre = ""
+        if "password" in pre.lower():
+            self._send_line(self.password)
+        elif self.prompt.lower() in pre.lower():
+            # Already authenticated.
+            return
+        else:
+            self._send_line(f"{self.login_command} {self.user}")
+            pw_prompt = self._read_until_tokens(
+                ["password", self.prompt],
+                timeout_sec=min(8.0, self.timeout_sec),
+            )
+            if "password" in pw_prompt.lower():
+                self._send_line(self.password)
+        self._read_until_tokens(
+            [self.prompt],
+            timeout_sec=min(10.0, self.timeout_sec),
+            allow_idle_on_data=True,
+        )
+
+    def execute(self, command: str) -> tuple[list[tuple[Any, ...]], list[tuple[str, ...]]]:
+        self._send_line(command)
+        raw = self._read_until_tokens(
+            [self.prompt],
+            timeout_sec=max(6.0, self.timeout_sec),
+            allow_idle_on_data=True,
+        )
+        lines = [ln.rstrip("\r") for ln in raw.splitlines()]
+        lines = [ln for ln in lines if ln.strip()]
+        if lines and lines[0].strip().lower() == command.strip().lower():
+            lines = lines[1:]
+        lines = [ln for ln in lines if ln.strip() not in {self.prompt.strip(), self.prompt.strip() + " "}]
+        if not lines:
+            return [], []
+        if lines[0].lower().startswith("error") or "exception" in lines[0].lower():
+            raise RuntimeError(lines[0])
+        if "\t" in lines[0]:
+            return _parse_delimited(lines, "\t")
+        if "|" in lines[0]:
+            return _parse_delimited(lines, "|")
+        if "," in lines[0] and (len(lines) == 1 or lines[1].count(",") == lines[0].count(",")):
+            return _parse_delimited(lines, ",")
+        ws_rows, ws_desc = _parse_whitespace_table(lines)
+        if ws_rows or ws_desc:
+            return ws_rows, ws_desc
+        rows = [(ln,) for ln in lines]
+        return rows, [("value",)]
+
+
+class TelnetCursor:
+    def __init__(self, client: TelnetAmiClient) -> None:
+        self._client = client
+        self._rows: list[tuple[Any, ...]] = []
+        self.description: list[tuple[str, ...]] = []
+
+    def execute(self, command: str) -> None:
+        rows, desc = self._client.execute(command)
+        self._rows = rows
+        self.description = desc
+
+    def fetchall(self) -> list[tuple[Any, ...]]:
+        return self._rows
+
+    def close(self) -> None:
+        return
+
+
+class TelnetConnection:
+    def __init__(self, client: TelnetAmiClient) -> None:
+        self._client = client
+
+    def cursor(self) -> TelnetCursor:
+        return TelnetCursor(self._client)
+
+    def close(self) -> None:
+        self._client.close()
+
+
 def connect_db(
+    adapter: str,
     driver_class: str,
     url: str,
     user: str,
     password: str,
     jar_path: str,
     java_home: str,
-) -> list[tuple[Any, ...]]:
+    telnet_host: str | None = None,
+    telnet_port: int | None = None,
+    telnet_login_command: str = "Login",
+    telnet_prompt: str = ">",
+    telnet_timeout_sec: float = 6.0,
+) -> Any:
+    if adapter == "telnet":
+        host = telnet_host
+        port = telnet_port
+        if host is None or port is None:
+            host2, port2 = _extract_host_port(url)
+            host = host or host2
+            port = port or _derive_default_telnet_port(port2)
+        if not host or not port:
+            raise ValueError(
+                "Telnet adapter requires host/port in URL or explicit telnet settings."
+            )
+        client = TelnetAmiClient(
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            login_command=telnet_login_command,
+            prompt=telnet_prompt,
+            timeout_sec=telnet_timeout_sec,
+        )
+        return TelnetConnection(client)
+
     jar_abs = str(Path(jar_path).resolve())
     if not Path(jar_abs).exists():
         raise FileNotFoundError(f"JDBC jar not found: {jar_abs}")
@@ -145,7 +418,7 @@ def connect_db(
 def fetch_show_tables(cursor: Any) -> list[tuple[Any, ...]]:
     cursor.execute("show tables")
     rows = cursor.fetchall()
-    rows = [r for r in rows if not str(r[0]).startswith("__")]
+    rows = [r for r in rows if r and len(r) > 0 and not str(r[0]).startswith("__")]
     return sorted(rows, key=lambda row: str(row[0]).lower())
 
 
@@ -198,17 +471,17 @@ def fetch_show_replications(cursor: Any) -> list[tuple[Any, ...]]:
 
 def fetch_show_triggers(cursor: Any) -> list[tuple[Any, ...]]:
     cursor.execute("show triggers")
-    return [r for r in cursor.fetchall() if not str(r[0]).startswith("__")]
+    return [r for r in cursor.fetchall() if r and len(r) > 0 and not str(r[0]).startswith("__")]
 
 
 def fetch_show_procedures(cursor: Any) -> list[tuple[Any, ...]]:
     cursor.execute("show procedures")
-    return [r for r in cursor.fetchall() if not str(r[0]).startswith("__")]
+    return [r for r in cursor.fetchall() if r and len(r) > 0 and not str(r[0]).startswith("__")]
 
 
 def fetch_show_timers(cursor: Any) -> list[tuple[Any, ...]]:
     cursor.execute("show timers")
-    return [r for r in cursor.fetchall() if not str(r[0]).startswith("__")]
+    return [r for r in cursor.fetchall() if r and len(r) > 0 and not str(r[0]).startswith("__")]
 
 
 def extract_trigger_use_option(text: str | None, key: str) -> str | None:
@@ -370,6 +643,8 @@ def fetch_timer_details(cursor: Any, timer_rows: list[tuple[Any, ...]]) -> list[
 def build_table_records(rows: list[list[Any]]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for row in rows:
+        if len(row) < 9:
+            continue
         is_realtime = row[1]
         if isinstance(is_realtime, int):
             is_realtime = bool(is_realtime)
@@ -1603,10 +1878,20 @@ def resolve_instance_password(instance_cfg: dict[str, Any], fallback: str | None
 def collect_instance_snapshot(instance_cfg: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
         name = str(instance_cfg.get("name") or instance_cfg.get("id") or instance_cfg.get("url") or "instance")
         driver_class = str(instance_cfg.get("driver_class") or args.driver_class)
+        adapter = str(instance_cfg.get("adapter") or args.adapter or "jdbc").lower()
         url = str(instance_cfg.get("url") or args.url)
         user = str(instance_cfg.get("user") or args.user)
         jar_path = str(instance_cfg.get("jar_path") or args.jar_path)
         java_home = str(instance_cfg.get("java_home") or args.java_home)
+        telnet_host = instance_cfg.get("telnet_host") or args.telnet_host
+        telnet_port = instance_cfg.get("telnet_port") or args.telnet_port
+        telnet_login_command = str(
+            instance_cfg.get("telnet_login_command") or args.telnet_login_command
+        )
+        telnet_prompt = str(instance_cfg.get("telnet_prompt") or args.telnet_prompt)
+        telnet_timeout_sec = float(
+            instance_cfg.get("telnet_timeout_sec") or args.telnet_timeout_sec
+        )
         password = resolve_instance_password(instance_cfg, args.password)
 
         connection = None
@@ -1624,12 +1909,18 @@ def collect_instance_snapshot(instance_cfg: dict[str, Any], args: argparse.Names
 
         try:
                 connection = connect_db(
+                    adapter=adapter,
                         driver_class=driver_class,
                         url=url,
                         user=user,
                         password=password,
                         jar_path=jar_path,
                         java_home=java_home,
+                    telnet_host=str(telnet_host) if telnet_host else None,
+                    telnet_port=int(telnet_port) if telnet_port else None,
+                    telnet_login_command=telnet_login_command,
+                    telnet_prompt=telnet_prompt,
+                    telnet_timeout_sec=telnet_timeout_sec,
                 )
                 cursor = connection.cursor()
                 rows = fetch_show_tables(cursor)
@@ -2155,12 +2446,18 @@ def main() -> int:
     timer_details: list[dict[str, Any]] = []
     try:
         connection = connect_db(
+            adapter=args.adapter,
             driver_class=args.driver_class,
             url=args.url,
             user=args.user,
             password=args.password,
             jar_path=args.jar_path,
             java_home=args.java_home,
+            telnet_host=args.telnet_host,
+            telnet_port=args.telnet_port,
+            telnet_login_command=args.telnet_login_command,
+            telnet_prompt=args.telnet_prompt,
+            telnet_timeout_sec=args.telnet_timeout_sec,
         )
         cursor = connection.cursor()
         rows = fetch_show_tables(cursor)

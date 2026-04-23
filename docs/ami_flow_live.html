@@ -42,6 +42,8 @@
     table { width:100%; border-collapse:collapse; font-size:12px; }
     th,td { border-bottom:1px solid #f2ece2; text-align:left; padding:8px; vertical-align:top; }
     th { background:#f9f5ef; position:sticky; top:0; }
+    tbody tr:nth-child(even):not(.ddl-expand-row) { background:#dff0f5; }
+    tbody tr:nth-child(odd):not(.ddl-expand-row)  { background:#fff; }
     .tbl { max-height:70vh; overflow:auto; border:1px solid var(--line); border-radius:10px; }
     .describe-link { cursor:pointer; color:var(--brand); background:none; border:none; font:inherit; font-size:12px; text-decoration:underline; padding:0; text-align:left; }
     .describe-link:hover { opacity:.75; }
@@ -49,6 +51,10 @@
     .ddl-expand-row.open { display:table-row; }
     .ddl-block { background:#f4f0e8; padding:10px 14px; border-radius:6px; font:11.5px/1.6 'Cascadia Code','Consolas','Courier New',monospace; white-space:pre-wrap; word-break:break-all; color:#2b2926; border:1px solid #ddd6c8; max-height:340px; overflow:auto; }
     .ddl-block.ddl-err { background:#fff1ef; border-color:#f0c2bc; color:#7a1f1f; }
+    .action-cell { white-space:nowrap; }
+    .action-link { cursor:pointer; color:var(--brand); background:none; border:none; font:inherit; font-size:11px; text-decoration:underline; padding:0 4px 0 0; }
+    .action-link:hover { opacity:.75; }
+    .action-link.drop-btn { color:#a02020; }
     @media (max-width: 980px) { .app { grid-template-columns:1fr; } .left { border-right:0; border-bottom:1px solid var(--line);} .meta{grid-template-columns:1fr 1fr;} }
   </style>
 </head>
@@ -81,7 +87,7 @@
 
     const params = new URLSearchParams(window.location.search);
     const targetInstance = (params.get('instance') || '').toLowerCase();
-    const targetView = (params.get('view') || 'overview').toLowerCase();
+    const targetView = (params.get('view') || 'tables').toLowerCase();
 
     const viewDefs = [
       ['overview', 'Overview'],
@@ -113,18 +119,23 @@
     // link that expands an inline DDL row below it.
     // colDescribeMap: plain object mapping colIndex (number) -> AMI object type string
     let currentInstance = null;
+    let currentView = null;
     let _ddlRowCounter = 0;
 
-    const renderDescribable = (headers, rows, colDescribeMap) => {
+    const renderDescribable = (headers, rows, colDescribeMap, htmlCols = new Set()) => {
       const th = headers.map((h) => `<th>${h}</th>`).join('');
       const bodyRows = rows.map((r) => {
         const expandId = `ddl-row-${_ddlRowCounter++}`;
         const cells = r.map((c, colIdx) => {
           if (colDescribeMap[colIdx] !== undefined) {
-            const objType = esc(colDescribeMap[colIdx]);
+            const rawType = typeof colDescribeMap[colIdx] === 'function'
+              ? colDescribeMap[colIdx](r, colIdx)
+              : colDescribeMap[colIdx];
+            const objType = esc(rawType);
             const objName = esc(fmt(c));
             return `<td><button class="describe-link" data-expandid="${expandId}" data-type="${objType}" data-name="${objName}">${esc(fmt(c))}</button></td>`;
           }
+          if (htmlCols.has(colIdx)) return `<td class="action-cell">${c}</td>`;
           return `<td>${esc(fmt(c))}</td>`;
         }).join('');
         return `<tr>${cells}</tr><tr class="ddl-expand-row" id="${expandId}"><td colspan="${headers.length}"><div class="ddl-block">Loading…</div></td></tr>`;
@@ -132,27 +143,52 @@
       return `<div class="tbl"><table><thead><tr>${th}</tr></thead><tbody>${bodyRows}</tbody></table></div>`;
     };
 
+    const actionDrop = (objType, objName) => `<button class="action-link drop-btn" data-type="${esc(objType)}" data-name="${esc(objName)}">Drop</button>`;
+    const actionViewData = (instName, tblName) => `<a class="action-link" href="/table_data.html?instance=${encodeURIComponent(instName)}&table=${encodeURIComponent(tblName)}" target="_blank">View Data</a>`;
+    const procedureRowObjectType = (row) => String(row[1] || '').toUpperCase() === 'METHOD' ? 'method' : 'procedure';
+
     tableWrap.addEventListener('click', async (e) => {
-      const btn = e.target.closest('.describe-link');
-      if (!btn || !currentInstance) return;
-      const expandId = btn.dataset.expandid;
-      const objType = btn.dataset.type;
-      const objName = btn.dataset.name;
-      const expandRow = document.getElementById(expandId);
-      if (!expandRow) return;
-      const isOpen = expandRow.classList.contains('open');
-      if (isOpen) { expandRow.classList.remove('open'); return; }
-      expandRow.classList.add('open');
-      if (expandRow.dataset.loaded) return;
-      const ddlBlock = expandRow.querySelector('.ddl-block');
-      try {
-        const url = `/api/instance/${encodeURIComponent(currentInstance)}/describe/${encodeURIComponent(objType)}/${encodeURIComponent(objName)}`;
-        const data = await fetchJsonChecked(url);
-        ddlBlock.textContent = data.ddl || '(no DDL returned)';
-        expandRow.dataset.loaded = '1';
-      } catch (err) {
-        ddlBlock.classList.add('ddl-err');
-        ddlBlock.textContent = err.message || String(err);
+      // DDL expand
+      const descBtn = e.target.closest('.describe-link');
+      if (descBtn && currentInstance) {
+        const expandId = descBtn.dataset.expandid;
+        const objType = descBtn.dataset.type;
+        const objName = descBtn.dataset.name;
+        const expandRow = document.getElementById(expandId);
+        if (!expandRow) return;
+        const isOpen = expandRow.classList.contains('open');
+        if (isOpen) { expandRow.classList.remove('open'); return; }
+        expandRow.classList.add('open');
+        if (expandRow.dataset.loaded) return;
+        const ddlBlock = expandRow.querySelector('.ddl-block');
+        try {
+          const url = `/api/instance/${encodeURIComponent(currentInstance)}/describe/${encodeURIComponent(objType)}/${encodeURIComponent(objName)}`;
+          const data = await fetchJsonChecked(url);
+          ddlBlock.textContent = data.ddl || '(no DDL returned)';
+          expandRow.dataset.loaded = '1';
+        } catch (err) {
+          ddlBlock.classList.add('ddl-err');
+          ddlBlock.textContent = err.message || String(err);
+        }
+        return;
+      }
+
+      // Drop
+      const dropBtn = e.target.closest('.drop-btn');
+      if (dropBtn && currentInstance) {
+        const objType = dropBtn.dataset.type;
+        const objName = dropBtn.dataset.name;
+        if (!confirm(`Drop ${objType} "${objName}" from ${currentInstance}?\nThis cannot be undone.`)) return;
+        try {
+          const url = `/api/instance/${encodeURIComponent(currentInstance)}/drop/${encodeURIComponent(objType)}/${encodeURIComponent(objName)}`;
+          const res = await fetch(url, { method: 'POST', cache: 'no-store' });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          // reload current view to reflect the change
+          if (currentView) loadView(currentInstance, currentView, null);
+        } catch (err) {
+          alert(`Drop failed: ${err.message || err}`);
+        }
       }
     });
 
@@ -172,8 +208,20 @@
       tableWrap.innerHTML = `<div class="error">${esc(msg)}</div>`;
     };
 
-    const fetchJsonChecked = async (url) => {
-      const res = await fetch(url, { cache: 'no-store' });
+    const fetchJsonChecked = async (url, timeoutMs = 12000) => {
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), timeoutMs);
+      let res;
+      try {
+        res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+      } catch (err) {
+        if (err && err.name === 'AbortError') {
+          throw new Error(`Live API request timed out after ${Math.round(timeoutMs / 1000)}s. Try tables first or verify telnet prompt settings.`);
+        }
+        throw err;
+      } finally {
+        clearTimeout(t);
+      }
       const raw = await res.text();
       const contentType = (res.headers.get('content-type') || '').toLowerCase();
       const looksHtml = raw.trim().startsWith('<!doctype') || raw.trim().startsWith('<html');
@@ -362,9 +410,11 @@
 
       if (view === 'tables') {
         tableWrap.innerHTML = renderDescribable(
-          ['Table', 'Owner', 'Rows', 'Columns', 'Realtime'],
-          (p.rows || []).map((t) => [t.name, t.owner, t.row_estimate, t.column_count, t.is_realtime]),
-          {0: 'table'}
+          ['Table', 'Owner', 'Rows', 'Columns', 'Realtime', 'Actions'],
+          (p.rows || []).map((t) => [t.name, t.owner, t.row_estimate, t.column_count, t.is_realtime,
+            actionViewData(currentInstance, t.name) + actionDrop('table', t.name)]),
+          {0: 'table'},
+          new Set([5])
         );
         return;
       }
@@ -373,9 +423,11 @@
         const flows = p.rows || [];
         tableWrap.innerHTML = `<div class="stack"><div class="chart-card"><p id="lineageSummary"></p><div class="svg-wrap"><svg id="lineageGraph" width="100%" height="520" role="img" aria-label="Trigger flow chart"></svg></div></div></div>`;
         tableWrap.querySelector('.stack').insertAdjacentHTML('beforeend', renderDescribable(
-          ['Trigger', 'Type', 'Inputs', 'Output', 'Enabled', 'Priority'],
-          flows.map((t) => [t.trigger, t.type, (t.input_tables || []).join(', '), formatTriggerOutput(t), t.enabled, t.priority]),
-          {0: 'trigger'}
+          ['Trigger', 'Type', 'Inputs', 'Output', 'Enabled', 'Priority', 'Actions'],
+          flows.map((t) => [t.trigger, t.type, (t.input_tables || []).join(', '), formatTriggerOutput(t), t.enabled, t.priority,
+            actionDrop('trigger', t.trigger)]),
+          {0: 'trigger'},
+          new Set([6])
         ));
         renderLineageGraph(
           document.getElementById('lineageGraph'),
@@ -387,18 +439,24 @@
 
       if (view === 'procedure_details') {
         tableWrap.innerHTML = renderDescribable(
-          ['Procedure', 'Type', 'Return', 'Owner', 'Arguments'],
-          (p.rows || []).map((r) => [r.name, r.procedure_type, r.return_type, r.owner, r.arguments]),
-          {0: 'procedure'}
+          ['Procedure', 'Type', 'Return', 'Owner', 'Arguments', 'Actions'],
+          (p.rows || []).map((r) => {
+            const objType = String(r.procedure_type || '').toUpperCase() === 'METHOD' ? 'method' : 'procedure';
+            return [r.name, r.procedure_type, r.return_type, r.owner, r.arguments, actionDrop(objType, r.name)];
+          }),
+          {0: (row) => procedureRowObjectType(row)},
+          new Set([5])
         );
         return;
       }
 
       if (view === 'timer_details') {
         tableWrap.innerHTML = renderDescribable(
-          ['Timer', 'Type', 'Priority', 'Schedule', 'Enabled', 'Next Run'],
-          (p.rows || []).map((r) => [r.name, r.timer_type, r.priority, r.schedule, r.enabled, r.next_run_time]),
-          {0: 'timer'}
+          ['Timer', 'Type', 'Priority', 'Schedule', 'Enabled', 'Next Run', 'Actions'],
+          (p.rows || []).map((r) => [r.name, r.timer_type, r.priority, r.schedule, r.enabled, r.next_run_time,
+            actionDrop('timer', r.name)]),
+          {0: 'timer'},
+          new Set([6])
         );
         return;
       }
@@ -440,6 +498,7 @@
 
     const loadView = async (instanceName, view, btn) => {
       currentInstance = instanceName;
+      currentView = view;
       _ddlRowCounter = 0;
       title.textContent = `${instanceName} / ${view}`;
       statusEl.textContent = 'Loading live data from AMI...';
@@ -451,7 +510,14 @@
 
       try {
         const url = `/api/instance/${encodeURIComponent(instanceName)}/${encodeURIComponent(view)}`;
-        const data = await fetchJsonChecked(url);
+        const timeoutByView = {
+          overview: 45000,
+          external_mappings: 30000,
+          relationships: 25000,
+          data_flow: 25000,
+          business_metrics: 25000,
+        };
+        const data = await fetchJsonChecked(url, timeoutByView[view] || 12000);
 
         const payload = data.payload || {};
         let rowCount = 0;
