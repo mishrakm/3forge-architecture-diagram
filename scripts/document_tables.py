@@ -591,6 +591,8 @@ def write_dashboard(
                 "business_metrics": logic_payload["business_metrics"],
                 "external_mappings": logic_payload["external_mappings"],
                 "trigger_flows": logic_payload["trigger_flows"],
+                "procedure_details": logic_payload["procedure_details"],
+                "timer_details": logic_payload["timer_details"],
         }
         dashboard_json = json.dumps(dashboard_data, ensure_ascii=True)
 
@@ -722,6 +724,8 @@ def write_dashboard(
             <button class=\"tab-btn\" data-tab=\"relationships\">Relationships</button>
             <button class=\"tab-btn\" data-tab=\"dataflow\">Data Flow</button>
             <button class=\"tab-btn\" data-tab=\"metrics\">Metrics</button>
+            <button class=\"tab-btn\" data-tab=\"procedures\">Procedures</button>
+            <button class=\"tab-btn\" data-tab=\"timers\">Timers</button>
             <button class="tab-btn" data-tab="external">External Mappings</button>
         </section>
 
@@ -799,6 +803,22 @@ def write_dashboard(
                 <div class=\"table-wrap\"><table><thead><tr><th>Table</th><th>Metric</th><th>Formula Hint</th></tr></thead><tbody id=\"metricRows\"></tbody></table></div>
             </div>
         </section>
+
+        <section class=\"panel\" id=\"panel-procedures\">
+            <div class=\"card\">
+                <div class=\"toolbar\"><input id=\"procedureSearch\" placeholder=\"Search procedure/type/owner\"></div>
+                <p class=\"muted\" id=\"procedureCount\"></p>
+                <div class=\"table-wrap\"><table><thead><tr><th>Procedure</th><th>Type</th><th>Return Type</th><th>Owner</th><th>Arguments</th></tr></thead><tbody id=\"procedureRows\"></tbody></table></div>
+            </div>
+        </section>
+
+        <section class=\"panel\" id=\"panel-timers\">
+            <div class=\"card\">
+                <div class=\"toolbar\"><input id=\"timerSearch\" placeholder=\"Search timer/type/schedule\"></div>
+                <p class=\"muted\" id=\"timerCount\"></p>
+                <div class=\"table-wrap\"><table><thead><tr><th>Timer</th><th>Type</th><th>Priority</th><th>Schedule</th><th>Enabled</th><th>Next Run</th></tr></thead><tbody id=\"timerRows\"></tbody></table></div>
+            </div>
+        </section>
     </div>
 
     <script>
@@ -810,6 +830,8 @@ def write_dashboard(
         const metrics = data.business_metrics || [];
         const externalMappings = data.external_mappings || { centers: [], replications: [] };
         const triggerFlows = data.trigger_flows || [];
+        const procedureDetails = data.procedure_details || [];
+        const timerDetails = data.timer_details || [];
 
         const fmt = (v) => {
             if (v === null || v === undefined) return "-";
@@ -962,6 +984,42 @@ def write_dashboard(
         };
         metricSearch.addEventListener("input", renderMetrics);
         renderMetrics();
+
+        const procedureSearch = document.getElementById("procedureSearch");
+        const renderProcedures = () => {
+            const s = procedureSearch.value.trim().toLowerCase();
+            const filtered = procedureDetails.filter((p) => {
+                return !s ||
+                    String(p.name).toLowerCase().includes(s) ||
+                    String(p.procedure_type).toLowerCase().includes(s) ||
+                    String(p.owner).toLowerCase().includes(s) ||
+                    String(p.arguments).toLowerCase().includes(s);
+            });
+            document.getElementById("procedureCount").textContent = "Showing " + filtered.length + " of " + procedureDetails.length + " procedures";
+            document.getElementById("procedureRows").innerHTML = filtered.map((p) =>
+                "<tr><td><strong>" + fmt(p.name) + "</strong></td><td>" + fmt(p.procedure_type) + "</td><td>" + fmt(p.return_type) + "</td><td>" + fmt(p.owner) + "</td><td>" + fmt(p.arguments) + "</td></tr>"
+            ).join("");
+        };
+        procedureSearch.addEventListener("input", renderProcedures);
+        renderProcedures();
+
+        const timerSearch = document.getElementById("timerSearch");
+        const renderTimers = () => {
+            const s = timerSearch.value.trim().toLowerCase();
+            const filtered = timerDetails.filter((t) => {
+                return !s ||
+                    String(t.name).toLowerCase().includes(s) ||
+                    String(t.timer_type).toLowerCase().includes(s) ||
+                    String(t.schedule).toLowerCase().includes(s);
+            });
+            document.getElementById("timerCount").textContent = "Showing " + filtered.length + " of " + timerDetails.length + " timers";
+            document.getElementById("timerRows").innerHTML = filtered.map((t) =>
+                "<tr><td><strong>" + fmt(t.name) + "</strong></td><td>" + fmt(t.timer_type) + "</td><td>" + fmt(t.priority) + "</td><td>" + fmt(t.schedule) + "</td><td>" + fmt(t.enabled) + "</td><td>" + fmt(t.next_run_time) + "</td></tr>"
+            ).join("");
+        };
+        timerSearch.addEventListener("input", renderTimers);
+        renderTimers();
+
         const centers = externalMappings.centers || [];
         const replications = externalMappings.replications || [];
         document.getElementById("centerCount").textContent = "Total centers: " + centers.length;

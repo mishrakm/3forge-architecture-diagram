@@ -20,12 +20,12 @@
       "schedule": "*/20 * 9-15 * * MON-SUN IST",
       "options_preview": "logging=\"verbose\" script=\"CALL n",
       "owner": "USER",
-      "last_run_time": "2026-04-23 12:27:00",
-      "next_run_time": "2026-04-23 12:27:20",
+      "last_run_time": "2026-04-23 12:30:00",
+      "next_run_time": "2026-04-23 12:30:20",
       "enabled": true,
       "ddl": "CREATE TIMER NetBookSnap OFTYPE AMISCRIPT ON \"*/20 * 9-15 * * MON-SUN IST\" PRIORITY 0 USE logging=\"verbose\" script=\"CALL netBookSnap();\";\n",
       "ddl_error": null
     }
   ],
-  "generated_at_utc": "2026-04-23T06:57:08.306895+00:00"
+  "generated_at_utc": "2026-04-23T07:00:03.451392+00:00"
 }

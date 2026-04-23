@@ -1,6 +1,6 @@
 # External Mappings
 
-Generated at (UTC): 2026-04-23T06:57:08.306895+00:00
+Generated at (UTC): 2026-04-23T07:00:03.451392+00:00
 
 ## Centers
 
@@ -8,7 +8,7 @@ Generated at (UTC): 2026-04-23T06:57:08.306895+00:00
 
 | Raw Row |
 |---|
-| `["pricedata", "localhost:20270", null, null, "CONNECTED", 1, 1735]` |
+| `["pricedata", "localhost:20270", null, null, "CONNECTED", 1, 1746]` |
 | `["ami_main", "localhost:2270", null, null, "CONNECTED", 4, 107558]` |
 
 ## Replications
@@ -17,7 +17,7 @@ Generated at (UTC): 2026-04-23T06:57:08.306895+00:00
 
 | Raw Row |
 |---|
-| `["nse_tbt_snap", "nse_tbt_snap", "pricedata", "nse_tbt_snap", null, "Clear=onConnect", 1735, "CONNECTED"]` |
+| `["nse_tbt_snap", "nse_tbt_snap", "pricedata", "nse_tbt_snap", null, "Clear=onConnect", 1746, "CONNECTED"]` |
 | `["ami_main.MasterExpenseParams", "MasterExpenseParams", "ami_main", "MasterExpenseParams", "Clear=onConnect", null, 10, "CONNECTED"]` |
 | `["ami_main.ServerUsers", "ServerUsers", "ami_main", "ServerUsers", "Clear=onConnect", null, 110, "CONNECTED"]` |
 | `["ami_main.ResultSet", "ResultSet", "ami_main", "ResultSet", "Clear=onConnect", null, 107269, "CONNECTED"]` |
