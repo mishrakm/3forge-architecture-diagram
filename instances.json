@@ -1,17 +1,212 @@
 {
   "instances": [
     {
-      "name": "TradeBook",
-      "url": "jdbc:amisql:125.125.126.5:3280",
+      "name": "Main app",
+      "app_code": "ami_main_app",
+      "mode": "center+relay",
+      "center_id": "25101",
+      "port": 2280,
+      "url": "jdbc:amisql:125.125.126.5:2280",
       "user": "pwadmin",
-      "password_env": "AMI_DB_PASSWORD",
+      "password": "pwadmin123",
       "jar_path": "./out.jar"
     },
     {
-      "name": "Main",
-      "url": "jdbc:amisql:125.125.126.5:2280",
+      "name": "Order History",
+      "app_code": "ami_orderhistory",
+      "mode": "center",
+      "center_id": "25101",
+      "port": 9280,
+      "url": "jdbc:amisql:125.125.126.5:9280",
       "user": "pwadmin",
-      "password_env": "AMI_DB_PASSWORD",
+      "password": "pwadmin123",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "TradeBook",
+      "app_code": "ami_tradebook",
+      "mode": "center+relay",
+      "center_id": "25101",
+      "port": 3280,
+      "url": "jdbc:amisql:125.125.126.5:3280",
+      "user": "pwadmin",
+      "password": "pwadmin123",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "RejectBook",
+      "app_code": "ami_rejectbook",
+      "mode": "center+relay",
+      "center_id": "25101",
+      "port": 4280,
+      "url": "jdbc:amisql:125.125.126.5:4280",
+      "user": "pwadmin",
+      "password": "pwadmin123",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "Pending Book",
+      "app_code": "ami_pendingbook",
+      "mode": "center+relay",
+      "center_id": "25101",
+      "port": 5280,
+      "url": "jdbc:amisql:125.125.126.5:5280",
+      "user": "pwadmin",
+      "password": "pwadmin123",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "OPS",
+      "app_code": "ami_ops",
+      "mode": "center+relay",
+      "center_id": null,
+      "port": 6280,
+      "url": "jdbc:amisql:125.125.126.5:6280",
+      "user": "pwadmin",
+      "password": "pwadmin123",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "Pending Book 2",
+      "app_code": "ami_pending_ops",
+      "mode": "center+relay",
+      "center_id": null,
+      "port": 8280,
+      "url": "jdbc:amisql:125.125.126.5:8280",
+      "user": "pwadmin",
+      "password": "pwadmin123",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "process kafka part 1",
+      "app_code": "ami_ord_1",
+      "mode": "relay+center",
+      "center_id": "25101",
+      "port": 10280,
+      "url": "jdbc:amisql:125.125.126.5:10280",
+      "user": "pwadmin",
+      "password": "pwadmin123",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "process kafka part 2",
+      "app_code": "ami_ord_2",
+      "mode": "relay+center",
+      "center_id": "25101",
+      "port": 11280,
+      "url": "jdbc:amisql:125.125.126.5:11280",
+      "user": "pwadmin",
+      "password": "pwadmin123",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "process kafka part 3",
+      "app_code": "ami_ord_3",
+      "mode": "relay+center",
+      "center_id": "25101",
+      "port": 12280,
+      "url": "jdbc:amisql:125.125.126.5:12280",
+      "user": "pwadmin",
+      "password": "pwadmin123",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "process kafka part 4",
+      "app_code": "ami_ord_4",
+      "mode": "relay+center",
+      "center_id": "25101",
+      "port": 13280,
+      "url": "jdbc:amisql:125.125.126.5:13280",
+      "user": "pwadmin",
+      "password": "pwadmin123",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "process kafka part 5",
+      "app_code": "ami_ord_5",
+      "mode": "relay+center",
+      "center_id": "25101",
+      "port": 14280,
+      "url": "jdbc:amisql:125.125.126.5:14280",
+      "user": "pwadmin",
+      "password": "pwadmin123",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "process kafka part 6",
+      "app_code": "ami_ord_6",
+      "mode": "relay+center",
+      "center_id": "25101",
+      "port": 15280,
+      "url": "jdbc:amisql:125.125.126.5:15280",
+      "user": "pwadmin",
+      "password": "pwadmin123",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "process kafka part 7",
+      "app_code": "ami_ord_7",
+      "mode": "relay+center",
+      "center_id": "25101",
+      "port": 16280,
+      "url": "jdbc:amisql:125.125.126.5:16280",
+      "user": "pwadmin",
+      "password": "pwadmin123",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "process kafka part 8",
+      "app_code": "ami_ord_8",
+      "mode": "relay+center",
+      "center_id": "25101",
+      "port": 17280,
+      "url": "jdbc:amisql:125.125.126.5:17280",
+      "user": "pwadmin",
+      "password": "pwadmin123",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "process kafka part 9",
+      "app_code": "ami_ord_9",
+      "mode": "relay+center",
+      "center_id": "25101",
+      "port": 18280,
+      "url": "jdbc:amisql:125.125.126.5:18280",
+      "user": "pwadmin",
+      "password": "pwadmin123",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "process kafka part 10",
+      "app_code": "ami_ord_10",
+      "mode": "relay+center",
+      "center_id": "25101",
+      "port": 19280,
+      "url": "jdbc:amisql:125.125.126.5:19280",
+      "user": "pwadmin",
+      "password": "pwadmin123",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "Price Data",
+      "app_code": "ami_pricefeeds",
+      "mode": "relay+center",
+      "center_id": "25101",
+      "port": 20280,
+      "url": "jdbc:amisql:125.125.126.5:20280",
+      "user": "pwadmin",
+      "password": "pwadmin123",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "Subscribe",
+      "app_code": "ami_subscribe",
+      "mode": "relay+center",
+      "center_id": "25101",
+      "port": 31280,
+      "url": "jdbc:amisql:125.125.126.5:31280",
+      "user": "pwadmin",
+      "password": "pwadmin123",
       "jar_path": "./out.jar"
     }
   ]

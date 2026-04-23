@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AMI Flow Viewer Live</title>
+  <style>
+    :root { --bg:#f6f3ed; --card:#fff; --ink:#2b2926; --muted:#6a635b; --line:#e7dfd4; --brand:#0b728f; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Segoe UI,Tahoma,sans-serif; background:var(--bg); color:var(--ink); }
+    .app { display:grid; grid-template-columns:320px 1fr; min-height:100vh; }
+    .left { border-right:1px solid var(--line); background:#fff; overflow:auto; }
+    .right { overflow:auto; padding:16px; }
+    .head { padding:14px; border-bottom:1px solid var(--line); position:sticky; top:0; background:#fff; z-index:2; }
+    .head h1 { margin:0; font-size:20px; }
+    .head p { margin:4px 0 0; color:var(--muted); font-size:12px; }
+    .tree { padding:10px; }
+    .tree details { border:1px solid var(--line); border-radius:10px; background:#faf8f5; margin-bottom:8px; }
+    .tree summary { cursor:pointer; list-style:none; padding:8px 10px; font-weight:700; }
+    .tree summary::-webkit-details-marker { display:none; }
+    .leaf { display:block; width:100%; border:0; background:transparent; text-align:left; padding:7px 12px; cursor:pointer; color:var(--ink); }
+    .leaf:hover { background:#eef7fa; }
+    .leaf.active { background:var(--brand); color:#fff; }
+    .panel { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; }
+    .panel h2 { margin:0 0 10px; }
+    .meta { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:8px; margin-bottom:10px; }
+    .k { border:1px solid var(--line); border-radius:10px; padding:8px; background:#fcfbf9; }
+    .k .n { color:var(--muted); font-size:11px; text-transform:uppercase; }
+    .k .v { margin-top:4px; font-weight:700; }
+    .stack { display:grid; gap:12px; }
+    .chart-card { border:1px solid var(--line); border-radius:10px; background:#fcfbf9; padding:10px; }
+    .chart-card p { margin:0 0 8px; color:var(--muted); font-size:12px; }
+    .svg-wrap { overflow:auto; border:1px solid #f2ece2; border-radius:10px; background:#fff; }
+    .lineage-label { fill:#594f46; font-size:10px; font-family:Segoe UI,Tahoma,sans-serif; }
+    .lineage-label-tspan { dominant-baseline:middle; }
+    .lineage-edge { stroke:#8f8a84; stroke-width:1.4; fill:none; marker-end:url(#arrow); }
+    .lineage-node-table { fill:#e8f3f6; stroke:#0b728f; stroke-width:1.1; }
+    .lineage-node-trigger { fill:#fce8cc; stroke:#c77d1a; stroke-width:1.1; }
+    .status { margin:0 0 10px; color:var(--muted); font-size:12px; }
+    .loading { padding:16px; border:1px dashed var(--line); border-radius:10px; color:var(--muted); background:#fffcf8; }
+    .error { padding:16px; border:1px solid #f0c2bc; border-radius:10px; color:#7a1f1f; background:#fff1ef; }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    th,td { border-bottom:1px solid #f2ece2; text-align:left; padding:8px; vertical-align:top; }
+    th { background:#f9f5ef; position:sticky; top:0; }
+    .tbl { max-height:70vh; overflow:auto; border:1px solid var(--line); border-radius:10px; }
+    .describe-link { cursor:pointer; color:var(--brand); background:none; border:none; font:inherit; font-size:12px; text-decoration:underline; padding:0; text-align:left; }
+    .describe-link:hover { opacity:.75; }
+    .ddl-expand-row { display:none; }
+    .ddl-expand-row.open { display:table-row; }
+    .ddl-block { background:#f4f0e8; padding:10px 14px; border-radius:6px; font:11.5px/1.6 'Cascadia Code','Consolas','Courier New',monospace; white-space:pre-wrap; word-break:break-all; color:#2b2926; border:1px solid #ddd6c8; max-height:340px; overflow:auto; }
+    .ddl-block.ddl-err { background:#fff1ef; border-color:#f0c2bc; color:#7a1f1f; }
+    @media (max-width: 980px) { .app { grid-template-columns:1fr; } .left { border-right:0; border-bottom:1px solid var(--line);} .meta{grid-template-columns:1fr 1fr;} }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="left">
+      <div class="head">
+        <h1>AMI Flow Viewer Live</h1>
+        <p id="globalMeta">Loading instances...</p>
+      </div>
+      <div class="tree" id="tree"></div>
+    </aside>
+    <main class="right">
+      <section class="panel">
+        <h2 id="title">Select a node</h2>
+        <p class="status" id="status">Live mode: queries AMI on click.</p>
+        <div class="meta" id="meta"></div>
+        <div id="tableWrap"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const tree = document.getElementById('tree');
+    const title = document.getElementById('title');
+    const meta = document.getElementById('meta');
+    const tableWrap = document.getElementById('tableWrap');
+    const statusEl = document.getElementById('status');
+    const globalMeta = document.getElementById('globalMeta');
+
+    const params = new URLSearchParams(window.location.search);
+    const targetInstance = (params.get('instance') || '').toLowerCase();
+    const targetView = (params.get('view') || 'overview').toLowerCase();
+
+    const viewDefs = [
+      ['overview', 'Overview'],
+      ['tables', 'Tables'],
+      ['trigger_flows', 'Trigger Flow'],
+      ['procedure_details', 'Procedures'],
+      ['timer_details', 'Timers'],
+      ['relationships', 'Relationships'],
+      ['data_flow', 'Data Flow'],
+      ['business_metrics', 'Metrics'],
+      ['external_mappings', 'External Mappings'],
+    ];
+
+    const fmt = (v) => (v === null || v === undefined ? '-' : String(v));
+    const esc = (v) => String(v)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+    const renderRows = (headers, rows) => {
+      const th = headers.map((h) => `<th>${h}</th>`).join('');
+      const tr = rows.map((r) => `<tr>${r.map((c) => `<td>${fmt(c)}</td>`).join('')}</tr>`).join('');
+      return `<div class="tbl"><table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
+    };
+
+    // Renders a table where column 0 (or configurable per colDescribeMap) becomes a clickable
+    // link that expands an inline DDL row below it.
+    // colDescribeMap: plain object mapping colIndex (number) -> AMI object type string
+    let currentInstance = null;
+    let _ddlRowCounter = 0;
+
+    const renderDescribable = (headers, rows, colDescribeMap) => {
+      const th = headers.map((h) => `<th>${h}</th>`).join('');
+      const bodyRows = rows.map((r) => {
+        const expandId = `ddl-row-${_ddlRowCounter++}`;
+        const cells = r.map((c, colIdx) => {
+          if (colDescribeMap[colIdx] !== undefined) {
+            const objType = esc(colDescribeMap[colIdx]);
+            const objName = esc(fmt(c));
+            return `<td><button class="describe-link" data-expandid="${expandId}" data-type="${objType}" data-name="${objName}">${esc(fmt(c))}</button></td>`;
+          }
+          return `<td>${esc(fmt(c))}</td>`;
+        }).join('');
+        return `<tr>${cells}</tr><tr class="ddl-expand-row" id="${expandId}"><td colspan="${headers.length}"><div class="ddl-block">Loading…</div></td></tr>`;
+      }).join('');
+      return `<div class="tbl"><table><thead><tr>${th}</tr></thead><tbody>${bodyRows}</tbody></table></div>`;
+    };
+
+    tableWrap.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.describe-link');
+      if (!btn || !currentInstance) return;
+      const expandId = btn.dataset.expandid;
+      const objType = btn.dataset.type;
+      const objName = btn.dataset.name;
+      const expandRow = document.getElementById(expandId);
+      if (!expandRow) return;
+      const isOpen = expandRow.classList.contains('open');
+      if (isOpen) { expandRow.classList.remove('open'); return; }
+      expandRow.classList.add('open');
+      if (expandRow.dataset.loaded) return;
+      const ddlBlock = expandRow.querySelector('.ddl-block');
+      try {
+        const url = `/api/instance/${encodeURIComponent(currentInstance)}/describe/${encodeURIComponent(objType)}/${encodeURIComponent(objName)}`;
+        const data = await fetchJsonChecked(url);
+        ddlBlock.textContent = data.ddl || '(no DDL returned)';
+        expandRow.dataset.loaded = '1';
+      } catch (err) {
+        ddlBlock.classList.add('ddl-err');
+        ddlBlock.textContent = err.message || String(err);
+      }
+    });
+
+    const formatTriggerOutput = (flow) => {
+      const target = fmt(flow.output_table);
+      if (String(flow.type || '').toUpperCase() !== 'RELAY') return target;
+      const host = flow.relay_host ? String(flow.relay_host) : '-';
+      const port = flow.relay_port ? String(flow.relay_port) : '-';
+      return `${target} (${host}:${port})`;
+    };
+
+    const renderLoading = (msg) => {
+      tableWrap.innerHTML = `<div class="loading">${esc(msg)}</div>`;
+    };
+
+    const renderError = (msg) => {
+      tableWrap.innerHTML = `<div class="error">${esc(msg)}</div>`;
+    };
+
+    const fetchJsonChecked = async (url) => {
+      const res = await fetch(url, { cache: 'no-store' });
+      const raw = await res.text();
+      const contentType = (res.headers.get('content-type') || '').toLowerCase();
+      const looksHtml = raw.trim().startsWith('<!doctype') || raw.trim().startsWith('<html');
+
+      if (!contentType.includes('application/json') || looksHtml) {
+        throw new Error(
+          'Live API is not returning JSON. Start scripts/live_view_server.py and open this page from that server.'
+        );
+      }
+
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch (_) {
+        throw new Error('Invalid JSON from live API endpoint.');
+      }
+
+      if (!res.ok) {
+        throw new Error(data && data.error ? data.error : `HTTP ${res.status}`);
+      }
+
+      return data;
+    };
+
+    const renderLineageGraph = (svg, summary, flows) => {
+      if (!svg || !summary) return;
+
+      const activeFlows = (flows || []).filter((f) => f && f.enabled !== false);
+      if (activeFlows.length === 0) {
+        summary.textContent = 'No active trigger flow to visualize.';
+        svg.setAttribute('viewBox', '0 0 760 180');
+        svg.innerHTML = "<text x='24' y='80' class='lineage-label'>No trigger flow available</text>";
+        return;
+      }
+
+      const producedTables = new Set(
+        activeFlows
+          .map((f) => (f && f.output_table ? String(f.output_table) : ''))
+          .filter((v) => v.length > 0)
+      );
+
+      const outputProducer = new Map();
+      activeFlows.forEach((f, i) => {
+        const out = f && f.output_table ? String(f.output_table) : '';
+        if (out && !outputProducer.has(out)) outputProducer.set(out, i);
+      });
+
+      const normalizeInputs = (f) =>
+        Array.isArray(f.input_tables) ? f.input_tables.map((v) => String(v)) : [];
+
+      const indegree = new Array(activeFlows.length).fill(0);
+      const edges = new Map();
+      for (let i = 0; i < activeFlows.length; i++) edges.set(i, []);
+
+      activeFlows.forEach((f, idx) => {
+        const inputs = normalizeInputs(f);
+        for (const inp of inputs) {
+          const producerIdx = outputProducer.get(inp);
+          if (producerIdx !== undefined && producerIdx !== idx) {
+            edges.get(producerIdx).push(idx);
+            indegree[idx] += 1;
+          }
+        }
+      });
+
+      const flowSortKey = (idx) => {
+        const f = activeFlows[idx];
+        const inputs = normalizeInputs(f);
+        const externalInputs = inputs.filter((t) => !producedTables.has(t));
+        const firstExternal = externalInputs.length ? externalInputs[0] : '';
+        const pri = Number(f.priority ?? 0);
+        const trig = String(f.trigger || '');
+        return [firstExternal.toLowerCase(), pri, trig.toLowerCase()];
+      };
+
+      const compareIdx = (a, b) => {
+        const ka = flowSortKey(a);
+        const kb = flowSortKey(b);
+        if (ka[0] !== kb[0]) return ka[0].localeCompare(kb[0]);
+        if (ka[1] !== kb[1]) return ka[1] - kb[1];
+        return ka[2].localeCompare(kb[2]);
+      };
+
+      const ready = [];
+      for (let i = 0; i < activeFlows.length; i++) {
+        if (indegree[i] === 0) ready.push(i);
+      }
+      ready.sort(compareIdx);
+
+      const orderedIndices = [];
+      while (ready.length > 0) {
+        const cur = ready.shift();
+        orderedIndices.push(cur);
+        const nexts = edges.get(cur) || [];
+        for (const nextIdx of nexts) {
+          indegree[nextIdx] -= 1;
+          if (indegree[nextIdx] === 0) {
+            ready.push(nextIdx);
+            ready.sort(compareIdx);
+          }
+        }
+      }
+
+      for (let i = 0; i < activeFlows.length; i++) {
+        if (!orderedIndices.includes(i)) orderedIndices.push(i);
+      }
+
+      const orderedFlows = orderedIndices.map((i) => activeFlows[i]);
+      const maxRows = Math.max(orderedFlows.length, 1);
+      const rowGap = 36;
+      const topPad = 36;
+      const height = Math.max(220, topPad * 2 + rowGap * maxRows);
+      svg.setAttribute('viewBox', `0 0 760 ${height}`);
+
+      const sx = 130;
+      const tx = 380;
+      const dx = 630;
+      const rectW = 170;
+      const rectH = 22;
+
+      const edgeLines = [];
+      const rowNodes = orderedFlows.map((f, i) => {
+        const y = topPad + i * rowGap;
+        const inputs = Array.isArray(f.input_tables) ? f.input_tables.map((v) => String(v)) : [];
+        const sourceLabel = inputs.length > 0 ? inputs.join('\n') : '(none)';
+        const triggerLabel = String(f.trigger || 'unknown_trigger');
+        const outputLabel = String(formatTriggerOutput(f) || '(none)');
+
+        edgeLines.push(
+          `<path class='lineage-edge' d='M ${sx + rectW / 2} ${y} C ${sx + 120} ${y}, ${tx - 120} ${y}, ${tx - rectW / 2} ${y}'></path>`
+        );
+        edgeLines.push(
+          `<path class='lineage-edge' d='M ${tx + rectW / 2} ${y} C ${tx + 120} ${y}, ${dx - 120} ${y}, ${dx - rectW / 2} ${y}'></path>`
+        );
+
+        return { sourceLabel, triggerLabel, outputLabel, y };
+      });
+
+      const drawNode = (x, y, name, klass) => {
+        const text = esc(name);
+        const lines = String(name).split('\n').map((s) => esc(s));
+        const lineHeight = 11;
+        const startY = y - ((lines.length - 1) * lineHeight) / 2;
+        const tspans = lines.map((ln, i) =>
+          `<tspan class='lineage-label-tspan' x='${x}' y='${startY + i * lineHeight}'>${ln}</tspan>`
+        ).join('');
+        const dynamicHeight = Math.max(rectH, 12 + lines.length * lineHeight);
+        return `<g><rect class='${klass}' x='${x - rectW / 2}' y='${y - dynamicHeight / 2}' width='${rectW}' height='${dynamicHeight}' rx='5'></rect><title>${text}</title><text class='lineage-label' x='${x}' y='${y}' text-anchor='middle'>${tspans}</text></g>`;
+      };
+
+      const labels = [
+        `<text class='lineage-label' x='${sx}' y='18' text-anchor='middle'>Source Tables (All Inputs)</text>`,
+        `<text class='lineage-label' x='${tx}' y='18' text-anchor='middle'>Triggers</text>`,
+        `<text class='lineage-label' x='${dx}' y='18' text-anchor='middle'>Target Tables</text>`,
+      ].join('');
+
+      const sourceNodes = rowNodes.map((n) => drawNode(sx, n.y, n.sourceLabel, 'lineage-node-table')).join('');
+      const triggerNodes = rowNodes.map((n) => drawNode(tx, n.y, n.triggerLabel, 'lineage-node-trigger')).join('');
+      const targetNodes = rowNodes.map((n) => drawNode(dx, n.y, n.outputLabel, 'lineage-node-table')).join('');
+
+      summary.textContent = `Ordered flows: ${rowNodes.length} (live query result)`;
+      svg.innerHTML = "<defs><marker id='arrow' markerWidth='9' markerHeight='6' refX='8' refY='3' orient='auto'><path d='M0,0 L9,3 L0,6 z' fill='#8f8a84'></path></marker></defs>" + labels + edgeLines.join('') + sourceNodes + triggerNodes + targetNodes;
+    };
+
+    const setMeta = (items) => {
+      meta.innerHTML = items.map(([n, v]) => `<div class="k"><div class="n">${esc(n)}</div><div class="v">${esc(fmt(v))}</div></div>`).join('');
+    };
+
+    const renderSection = (view, data) => {
+      const p = data.payload || {};
+      if (view === 'overview') {
+        const counts = p.counts || {};
+        tableWrap.innerHTML = renderRows(
+          ['Section', 'Count'],
+          [
+            ['Tables', counts.tables],
+            ['Triggers', counts.triggers],
+            ['Procedures', counts.procedures],
+            ['Timers', counts.timers],
+            ['Centers', counts.centers],
+            ['Replications', counts.replications],
+          ]
+        );
+        return;
+      }
+
+      if (view === 'tables') {
+        tableWrap.innerHTML = renderDescribable(
+          ['Table', 'Owner', 'Rows', 'Columns', 'Realtime'],
+          (p.rows || []).map((t) => [t.name, t.owner, t.row_estimate, t.column_count, t.is_realtime]),
+          {0: 'table'}
+        );
+        return;
+      }
+
+      if (view === 'trigger_flows') {
+        const flows = p.rows || [];
+        tableWrap.innerHTML = `<div class="stack"><div class="chart-card"><p id="lineageSummary"></p><div class="svg-wrap"><svg id="lineageGraph" width="100%" height="520" role="img" aria-label="Trigger flow chart"></svg></div></div></div>`;
+        tableWrap.querySelector('.stack').insertAdjacentHTML('beforeend', renderDescribable(
+          ['Trigger', 'Type', 'Inputs', 'Output', 'Enabled', 'Priority'],
+          flows.map((t) => [t.trigger, t.type, (t.input_tables || []).join(', '), formatTriggerOutput(t), t.enabled, t.priority]),
+          {0: 'trigger'}
+        ));
+        renderLineageGraph(
+          document.getElementById('lineageGraph'),
+          document.getElementById('lineageSummary'),
+          flows
+        );
+        return;
+      }
+
+      if (view === 'procedure_details') {
+        tableWrap.innerHTML = renderDescribable(
+          ['Procedure', 'Type', 'Return', 'Owner', 'Arguments'],
+          (p.rows || []).map((r) => [r.name, r.procedure_type, r.return_type, r.owner, r.arguments]),
+          {0: 'procedure'}
+        );
+        return;
+      }
+
+      if (view === 'timer_details') {
+        tableWrap.innerHTML = renderDescribable(
+          ['Timer', 'Type', 'Priority', 'Schedule', 'Enabled', 'Next Run'],
+          (p.rows || []).map((r) => [r.name, r.timer_type, r.priority, r.schedule, r.enabled, r.next_run_time]),
+          {0: 'timer'}
+        );
+        return;
+      }
+
+      if (view === 'relationships') {
+        tableWrap.innerHTML = renderRows(
+          ['Left', 'Right', 'Shared Keys', 'Strength'],
+          (p.rows || []).map((r) => [r.left_table, r.right_table, (r.shared_keys || []).join(', '), r.strength])
+        );
+        return;
+      }
+
+      if (view === 'data_flow') {
+        tableWrap.innerHTML = renderRows(
+          ['Table', 'Category', 'Owner', 'Realtime', 'Hints'],
+          (p.rows || []).map((r) => [r.table, r.category, r.owner, r.is_realtime, (r.upstream_hints || []).join(', ')])
+        );
+        return;
+      }
+
+      if (view === 'business_metrics') {
+        tableWrap.innerHTML = renderRows(
+          ['Table', 'Metric', 'Formula Hint'],
+          (p.rows || []).map((r) => [r.table, r.metric, r.formula_hint])
+        );
+        return;
+      }
+
+      const centers = p.centers || [];
+      const replications = p.replications || [];
+      tableWrap.innerHTML = `<div class="stack">${renderRows(
+        ['Center', 'Type', 'Active', 'Connected', 'Connect Time'],
+        centers.map((r) => [r[0], r[1], r[4], r[5], r[6]])
+      )}${renderRows(
+        ['Replication', 'Center', 'Table', 'Type', 'Direction', 'Enabled'],
+        replications.map((r) => [r[0], r[1], r[2], r[3], r[6], r[7]])
+      )}</div>`;
+    };
+
+    const loadView = async (instanceName, view, btn) => {
+      currentInstance = instanceName;
+      _ddlRowCounter = 0;
+      title.textContent = `${instanceName} / ${view}`;
+      statusEl.textContent = 'Loading live data from AMI...';
+      if (btn) {
+        document.querySelectorAll('.leaf.active').forEach((e) => e.classList.remove('active'));
+        btn.classList.add('active');
+      }
+      renderLoading(`Fetching ${view} for ${instanceName}...`);
+
+      try {
+        const url = `/api/instance/${encodeURIComponent(instanceName)}/${encodeURIComponent(view)}`;
+        const data = await fetchJsonChecked(url);
+
+        const payload = data.payload || {};
+        let rowCount = 0;
+        if (Array.isArray(payload.rows)) rowCount = payload.rows.length;
+        if (view === 'overview') rowCount = Object.keys(payload.counts || {}).length;
+        if (view === 'external_mappings') rowCount = (payload.centers || []).length + (payload.replications || []).length;
+
+        setMeta([
+          ['Instance', data.instance],
+          ['Section', data.section],
+          ['Rows', rowCount],
+          ['Query Time (ms)', data.elapsed_ms],
+          ['Generated (UTC)', data.generated_at_utc],
+          ['URL', data.url],
+        ]);
+        renderSection(view, data);
+        statusEl.textContent = `Live mode: fetched in ${fmt(data.elapsed_ms)} ms`;
+
+        const qp = new URLSearchParams(window.location.search);
+        qp.set('instance', instanceName);
+        qp.set('view', view);
+        history.replaceState(null, '', `${window.location.pathname}?${qp.toString()}`);
+      } catch (err) {
+        setMeta([
+          ['Instance', instanceName],
+          ['Section', view],
+          ['Rows', '-'],
+          ['Query Time (ms)', '-'],
+          ['Generated (UTC)', '-'],
+          ['URL', '-'],
+        ]);
+        renderError(err && err.message ? err.message : String(err));
+        statusEl.textContent = 'Live mode: request failed';
+      }
+    };
+
+    const boot = async () => {
+      try {
+        const payload = await fetchJsonChecked('/api/instances');
+
+        const instances = Array.isArray(payload.instances) ? payload.instances : [];
+        if (!instances.length) {
+          globalMeta.textContent = 'No instances configured.';
+          renderError('No instances returned by /api/instances. Check instances.json.');
+          return;
+        }
+
+        globalMeta.textContent = `Instances: ${instances.length} | Live API connected`;
+        let firstAction = null;
+
+        instances.forEach((inst, idx) => {
+          const name = String(inst.name || 'instance');
+          const details = document.createElement('details');
+          const isTarget = targetInstance && name.toLowerCase() === targetInstance;
+          details.open = isTarget || (!targetInstance && idx === 0);
+
+          const summary = document.createElement('summary');
+          summary.textContent = name;
+          details.appendChild(summary);
+
+          viewDefs.forEach(([key, label], jdx) => {
+            const btn = document.createElement('button');
+            btn.className = 'leaf';
+            btn.textContent = label;
+            btn.addEventListener('click', () => loadView(name, key, btn));
+            details.appendChild(btn);
+
+            const shouldDefault = isTarget
+              ? key === targetView
+              : (!targetInstance && idx === 0 && key === 'overview');
+            if (shouldDefault) {
+              firstAction = () => btn.click();
+            } else if (!firstAction && idx === 0 && jdx === 0) {
+              firstAction = () => btn.click();
+            }
+          });
+
+          tree.appendChild(details);
+        });
+
+        if (firstAction) firstAction();
+      } catch (err) {
+        globalMeta.textContent = 'Live API unavailable';
+        renderError((err && err.message ? err.message : String(err)) + ' Use /docs/index.html to open snapshot mode if needed.');
+      }
+    };
+
+    boot();
+  </script>
+</body>
+</html>

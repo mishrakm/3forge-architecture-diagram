@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import http.server
 import json
+import os
 import socket
 import time
 from dataclasses import dataclass
@@ -34,7 +35,6 @@ from document_tables import (
     infer_business_metrics,
     infer_relationships,
     load_instances_config,
-    parse_args as parse_generator_args,
     resolve_instance_password,
 )
 
@@ -49,6 +49,8 @@ ALLOWED_VIEWS = {
     "business_metrics",
     "external_mappings",
 }
+
+ALLOWED_DESCRIBE_TYPES = {"table", "trigger", "procedure", "timer"}
 
 
 @dataclass
@@ -69,6 +71,38 @@ def parse_args() -> argparse.Namespace:
         "--instances-config",
         default=DEFAULTS["instances_config"],
         help="Path to instances.json used by live API endpoints.",
+    )
+    parser.add_argument(
+        "--driver-class",
+        default=os.getenv("AMI_DB_DRIVER", DEFAULTS["driver_class"]),
+        help="Default JDBC driver for instances that omit driver_class.",
+    )
+    parser.add_argument(
+        "--url",
+        default=os.getenv("AMI_DB_URL", DEFAULTS["url"]),
+        help="Fallback JDBC URL for instances that omit url.",
+    )
+    parser.add_argument(
+        "--user",
+        default=os.getenv("AMI_DB_USER", DEFAULTS["user"]),
+        help="Fallback AMI DB user for instances that omit user.",
+    )
+    parser.add_argument(
+        "--password",
+        default=os.getenv("AMI_DB_PASSWORD"),
+        help="Fallback AMI DB password when instance config lacks password/password_env.",
+    )
+    parser.add_argument(
+        "--jar-path",
+        default=os.getenv("AMI_DB_JAR", DEFAULTS["jar_path"]),
+        help="Fallback JDBC jar for instances that omit jar_path.",
+    )
+    parser.add_argument(
+        "--java-home",
+        default=os.getenv(
+            "JAVA_HOME", "/usr/lib/jvm/java-17-openjdk-17.0.18.0.8-2.el9.x86_64"
+        ),
+        help="JAVA_HOME used to boot the JVM.",
     )
     return parser.parse_args()
 
@@ -231,6 +265,137 @@ def query_section(instance_cfg: dict[str, Any], args: argparse.Namespace, sectio
             connection.close()
 
 
+_SAFE_NAME_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_.]*$')
+
+
+def _validate_obj_name(name: str) -> None:
+    if not _SAFE_NAME_RE.match(name) or any(c in name for c in (';', '\n', '\r', '"', "'")):
+        raise ValueError(f"Invalid object name: {name!r}")
+
+
+def _make_connection(instance_cfg: dict[str, Any], args: argparse.Namespace):  # type: ignore[return]
+    return connect_db(
+        driver_class=str(instance_cfg.get("driver_class") or args.driver_class),
+        url=str(instance_cfg.get("url") or args.url),
+        user=str(instance_cfg.get("user") or args.user),
+        password=resolve_instance_password(instance_cfg, args.password),
+        jar_path=str(instance_cfg.get("jar_path") or args.jar_path),
+        java_home=str(instance_cfg.get("java_home") or args.java_home),
+    )
+
+
+def query_table_data(
+    instance_cfg: dict[str, Any],
+    args: argparse.Namespace,
+    table_name: str,
+) -> dict[str, Any]:
+    _validate_obj_name(table_name)
+    started = time.time()
+    connection = None
+    cursor = None
+    try:
+        connection = _make_connection(instance_cfg, args)
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT * FROM {table_name} LIMIT 1000")
+        col_names = [str(d[0]) for d in (cursor.description or [])]
+        rows = normalize_rows(cursor.fetchall())
+        elapsed_ms = int((time.time() - started) * 1000)
+        return {
+            "instance": str(instance_cfg.get("name") or instance_cfg.get("url")),
+            "table": table_name,
+            "columns": col_names,
+            "rows": rows,
+            "row_count": len(rows),
+            "elapsed_ms": elapsed_ms,
+            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        }
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None:
+            connection.close()
+
+
+def query_drop(
+    instance_cfg: dict[str, Any],
+    args: argparse.Namespace,
+    obj_type: str,
+    obj_name: str,
+) -> dict[str, Any]:
+    if obj_type not in ALLOWED_DESCRIBE_TYPES:
+        raise ValueError(f"Unsupported drop type: {obj_type!r}")
+    _validate_obj_name(obj_name)
+    started = time.time()
+    connection = None
+    cursor = None
+    try:
+        connection = _make_connection(instance_cfg, args)
+        cursor = connection.cursor()
+        cursor.execute(f"DROP {obj_type} {obj_name}")
+        elapsed_ms = int((time.time() - started) * 1000)
+        return {
+            "instance": str(instance_cfg.get("name") or instance_cfg.get("url")),
+            "object_type": obj_type,
+            "object_name": obj_name,
+            "dropped": True,
+            "elapsed_ms": elapsed_ms,
+            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        }
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None:
+            connection.close()
+
+
+def query_describe(
+    instance_cfg: dict[str, Any],
+    args: argparse.Namespace,
+    obj_type: str,
+    obj_name: str,
+) -> dict[str, Any]:
+    if obj_type not in ALLOWED_DESCRIBE_TYPES:
+        raise ValueError(f"Unsupported describe type: {obj_type!r}")
+
+    driver_class = str(instance_cfg.get("driver_class") or args.driver_class)
+    url = str(instance_cfg.get("url") or args.url)
+    user = str(instance_cfg.get("user") or args.user)
+    jar_path = str(instance_cfg.get("jar_path") or args.jar_path)
+    java_home = str(instance_cfg.get("java_home") or args.java_home)
+    password = resolve_instance_password(instance_cfg, args.password)
+
+    started = time.time()
+    connection = None
+    cursor = None
+    try:
+        connection = connect_db(
+            driver_class=driver_class,
+            url=url,
+            user=user,
+            password=password,
+            jar_path=jar_path,
+            java_home=java_home,
+        )
+        cursor = connection.cursor()
+        cursor.execute(f"describe {obj_type} {obj_name}")
+        rows = cursor.fetchall()
+        ddl = str(rows[0][0]) if rows else None
+        elapsed_ms = int((time.time() - started) * 1000)
+        return {
+            "instance": str(instance_cfg.get("name") or url),
+            "object_type": obj_type,
+            "object_name": obj_name,
+            "ddl": ddl,
+            "elapsed_ms": elapsed_ms,
+            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        }
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None:
+            connection.close()
+
+
 class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
     """Serve static files and live JSON endpoints."""
 
@@ -238,7 +403,7 @@ class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def end_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         super().end_headers()
 
@@ -252,6 +417,33 @@ class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_api(parsed.path)
             return
         super().do_GET()
+
+    def do_POST(self) -> None:  # noqa: N802
+        parsed = urlparse(self.path)
+        if parsed.path.startswith("/api/"):
+            self.handle_api_post(parsed.path)
+            return
+        self.send_response(405)
+        self.end_headers()
+
+    def handle_api_post(self, path: str) -> None:
+        try:
+            prefix = "/api/instance/"
+            if path.startswith(prefix):
+                rest = path[len(prefix):]
+                parts = [unquote(p) for p in rest.split("/") if p]
+                if len(parts) == 4 and parts[1] == "drop":
+                    instance_name, _, obj_type, obj_name = parts
+                    cfg = self.app.instance_map.get(instance_name.lower())
+                    if cfg is None:
+                        self.write_json(404, {"error": f"Unknown instance: {instance_name}"})
+                        return
+                    result = query_drop(cfg, self.app.generator_args, obj_type, obj_name)
+                    self.write_json(200, result)
+                    return
+            self.write_json(404, {"error": "Unknown API endpoint"})
+        except Exception as exc:  # noqa: BLE001
+            self.write_json(500, {"error": str(exc)})
 
     def handle_api(self, path: str) -> None:
         try:
@@ -275,6 +467,29 @@ class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
             if path.startswith(prefix):
                 rest = path[len(prefix) :]
                 parts = [unquote(p) for p in rest.split("/") if p]
+
+                # /api/instance/<name>/describe/<type>/<object>
+                if len(parts) == 4 and parts[1] == "describe":
+                    instance_name, _, obj_type, obj_name = parts
+                    cfg = self.app.instance_map.get(instance_name.lower())
+                    if cfg is None:
+                        self.write_json(404, {"error": f"Unknown instance: {instance_name}"})
+                        return
+                    result = query_describe(cfg, self.app.generator_args, obj_type, obj_name)
+                    self.write_json(200, result)
+                    return
+
+                # /api/instance/<name>/table_data/<tablename>
+                if len(parts) == 3 and parts[1] == "table_data":
+                    instance_name, _, table_name = parts
+                    cfg = self.app.instance_map.get(instance_name.lower())
+                    if cfg is None:
+                        self.write_json(404, {"error": f"Unknown instance: {instance_name}"})
+                        return
+                    result = query_table_data(cfg, self.app.generator_args, table_name)
+                    self.write_json(200, result)
+                    return
+
                 if len(parts) != 2:
                     self.write_json(400, {"error": "Expected /api/instance/<name>/<section>"})
                     return
@@ -324,8 +539,14 @@ def main() -> int:
     if not instances:
         raise SystemExit("Instances config is empty.")
 
-    # Reuse the generator argument defaults and env loading behavior.
-    generator_args = parse_generator_args()
+    generator_args = argparse.Namespace(
+        driver_class=args.driver_class,
+        url=args.url,
+        user=args.user,
+        password=args.password,
+        jar_path=args.jar_path,
+        java_home=args.java_home,
+    )
     instance_map = build_instance_map(instances)
 
     handler = lambda *h_args, **h_kwargs: LiveRequestHandler(  # noqa: E731

@@ -145,6 +145,7 @@ def connect_db(
 def fetch_show_tables(cursor: Any) -> list[tuple[Any, ...]]:
     cursor.execute("show tables")
     rows = cursor.fetchall()
+    rows = [r for r in rows if not str(r[0]).startswith("__")]
     return sorted(rows, key=lambda row: str(row[0]).lower())
 
 
@@ -197,17 +198,25 @@ def fetch_show_replications(cursor: Any) -> list[tuple[Any, ...]]:
 
 def fetch_show_triggers(cursor: Any) -> list[tuple[Any, ...]]:
     cursor.execute("show triggers")
-    return cursor.fetchall()
+    return [r for r in cursor.fetchall() if not str(r[0]).startswith("__")]
 
 
 def fetch_show_procedures(cursor: Any) -> list[tuple[Any, ...]]:
     cursor.execute("show procedures")
-    return cursor.fetchall()
+    return [r for r in cursor.fetchall() if not str(r[0]).startswith("__")]
 
 
 def fetch_show_timers(cursor: Any) -> list[tuple[Any, ...]]:
     cursor.execute("show timers")
-    return cursor.fetchall()
+    return [r for r in cursor.fetchall() if not str(r[0]).startswith("__")]
+
+
+def extract_trigger_use_option(text: str | None, key: str) -> str | None:
+    if not text:
+        return None
+    pattern = re.compile(rf'{re.escape(key)}="([^"]+)"', re.IGNORECASE)
+    match = pattern.search(text)
+    return match.group(1) if match else None
 
 
 def fetch_trigger_details(cursor: Any, trigger_rows: list[tuple[Any, ...]]) -> list[dict[str, Any]]:
@@ -234,6 +243,9 @@ def fetch_trigger_details(cursor: Any, trigger_rows: list[tuple[Any, ...]]) -> l
         tables = [t.strip() for t in table_chain.split(",") if t and t.strip()]
         input_tables = tables[:-1] if len(tables) > 1 else tables
         output_table = tables[-1] if tables else None
+        relay_source = ddl or options_preview
+        relay_host = extract_trigger_use_option(relay_source, "host")
+        relay_port = extract_trigger_use_option(relay_source, "port")
 
         details.append(
             {
@@ -245,6 +257,8 @@ def fetch_trigger_details(cursor: Any, trigger_rows: list[tuple[Any, ...]]) -> l
                 "table_chain": tables,
                 "input_tables": input_tables,
                 "output_table": output_table,
+                "relay_host": relay_host,
+                "relay_port": relay_port,
                 "options_preview": options_preview,
                 "ddl": ddl,
                 "ddl_error": ddl_error,
@@ -264,6 +278,8 @@ def derive_trigger_flows(trigger_details: list[dict[str, Any]]) -> list[dict[str
                 "type": trg["type"],
                 "input_tables": trg["input_tables"],
                 "output_table": trg["output_table"],
+                "relay_host": trg.get("relay_host"),
+                "relay_port": trg.get("relay_port"),
                 "enabled": trg["enabled"],
                 "priority": trg["priority"],
             }
@@ -854,6 +870,14 @@ def write_dashboard(
             return String(v);
         };
 
+        const formatTriggerOutput = (flow) => {
+            const target = fmt(flow.output_table);
+            if (String(flow.type || '').toUpperCase() !== 'RELAY') return target;
+            const host = flow.relay_host ? String(flow.relay_host) : '-';
+            const port = flow.relay_port ? String(flow.relay_port) : '-';
+            return `${target} (${host}:${port})`;
+        };
+
         document.getElementById("source").textContent =
             "URL: " + data.url + " | User: " + data.user + " | Driver: " + data.driver_class;
         document.getElementById("generated").textContent =
@@ -1064,11 +1088,12 @@ def write_dashboard(
             "<td><strong>" + fmt(f.trigger) + "</strong></td>" +
             "<td>" + fmt(f.type) + "</td>" +
             "<td>" + fmt((f.input_tables || []).join(", ")) + "</td>" +
-            "<td>" + fmt(f.output_table) + "</td>" +
+            "<td>" + formatTriggerOutput(f) + "</td>" +
             "<td>" + fmt(f.enabled) + "</td>" +
             "<td>" + fmt(f.priority) + "</td>" +
             "</tr>"
         ).join("");
+                const outputLabel = String(formatTriggerOutput(f) || "(none)");
 
         const renderLineageGraph = (flows) => {
             const svg = document.getElementById("lineageGraph");
@@ -1328,8 +1353,13 @@ def write_dataflow_markdown(path: Path, payload: dict[str, Any]) -> None:
         "|---|---|---|---|---|---|",
     ])
     for trg in trigger_flows:
+        output_label = str(trg["output_table"])
+        if str(trg.get("type") or "").upper() == "RELAY":
+            relay_host = trg.get("relay_host") or "-"
+            relay_port = trg.get("relay_port") or "-"
+            output_label = f"{output_label} ({relay_host}:{relay_port})"
         lines.append(
-            f"| {trg['trigger']} | {trg['type']} | {', '.join(trg['input_tables'])} | {trg['output_table']} | {trg['enabled']} | {trg['priority']} |"
+            f"| {trg['trigger']} | {trg['type']} | {', '.join(trg['input_tables'])} | {output_label} | {trg['enabled']} | {trg['priority']} |"
         )
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1411,8 +1441,13 @@ def write_triggers_markdown(path: Path, payload: dict[str, Any]) -> None:
         "|---|---|---|---|---|",
     ]
     for flow in trigger_flows:
+        output_label = str(flow["output_table"])
+        if str(flow.get("type") or "").upper() == "RELAY":
+            relay_host = flow.get("relay_host") or "-"
+            relay_port = flow.get("relay_port") or "-"
+            output_label = f"{output_label} ({relay_host}:{relay_port})"
         lines.append(
-            f"| {flow['trigger']} | {flow['type']} | {', '.join(flow['input_tables'])} | {flow['output_table']} | {flow['enabled']} |"
+            f"| {flow['trigger']} | {flow['type']} | {', '.join(flow['input_tables'])} | {output_label} | {flow['enabled']} |"
         )
 
     lines.extend([
@@ -1426,6 +1461,9 @@ def write_triggers_markdown(path: Path, payload: dict[str, Any]) -> None:
         lines.append(f"- Type: {trg['type']}")
         lines.append(f"- Priority: {trg['priority']}")
         lines.append(f"- Owner: {trg['owner']}")
+        if str(trg.get("type") or "").upper() == "RELAY":
+            lines.append(f"- Relay host: {trg.get('relay_host') or '-'}")
+            lines.append(f"- Relay port: {trg.get('relay_port') or '-'}")
         lines.append(f"- Enabled: {trg['enabled']}")
         lines.append(f"- Input tables: {', '.join(trg['input_tables'])}")
         lines.append(f"- Output table: {trg['output_table']}")
@@ -1744,6 +1782,15 @@ def write_multi_instance_dashboard(path: Path, payload: dict[str, Any]) -> None:
             return `<div class="tbl"><table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
         };
 
+        const formatTriggerOutput = (flow) => {
+            const target = fmt(flow.output_table);
+            if (String(flow.type || '').toUpperCase() !== 'RELAY') return target;
+            const host = flow.relay_host ? String(flow.relay_host) : '-';
+            const port = flow.relay_port ? String(flow.relay_port) : '-';
+            return `${target} (${host}:${port})`;
+        };
+                const outputLabel = String(formatTriggerOutput(f) || '(none)');
+
         const esc = (v) => String(v)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -1929,7 +1976,7 @@ def write_multi_instance_dashboard(path: Path, payload: dict[str, Any]) -> None:
             if (view === 'trigger_flows') {
                 tableWrap.innerHTML = `<div class="stack"><div class="chart-card"><p id="lineageSummary"></p><div class="svg-wrap"><svg id="lineageGraph" width="100%" height="520" role="img" aria-label="Trigger flow chart"></svg></div></div>${renderRows(
                     ['Trigger', 'Type', 'Inputs', 'Output', 'Enabled', 'Priority'],
-                    (inst.trigger_flows || []).map((t) => [t.trigger, t.type, (t.input_tables || []).join(', '), t.output_table, t.enabled, t.priority])
+                    (inst.trigger_flows || []).map((t) => [t.trigger, t.type, (t.input_tables || []).join(', '), formatTriggerOutput(t), t.enabled, t.priority])
                 )}</div>`;
                 renderLineageGraph(
                     document.getElementById('lineageGraph'),

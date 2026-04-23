@@ -75,6 +75,29 @@ cd /home/3forge/3forge-architecture-diagram
 Then open:
 - `http://localhost:8080/tables_dashboard.html`
 
+## Live AMI Viewer (On-Click Real-Time Queries)
+
+Use this mode when you want the dashboard to query AMI on-demand for each click (tables, triggers, procedures, timers, relationships, data flow, metrics, and external mappings).
+
+Run:
+
+```bash
+cd /home/3forge/3forge-architecture-diagram
+export AMI_DB_PASSWORD='your-password'
+/home/3forge/3forge-architecture-diagram/.venv/bin/python scripts/live_view_server.py \
+	--port 8080 \
+	--dir docs \
+	--instances-config ./instances.json
+```
+
+Open:
+- `http://localhost:8080/index.html`
+- `http://localhost:8080/ami_flow_live.html`
+
+Notes:
+- `ami_flow_live.html` fetches data from `/api/*` on each click, so it stays connected to AMI in real time.
+- Existing documentation generation (`scripts/document_tables.py`) remains unchanged for snapshot/export use cases.
+
 This server adds:
 - `Access-Control-Allow-Origin: *`
 - `Access-Control-Allow-Methods: GET, OPTIONS`
