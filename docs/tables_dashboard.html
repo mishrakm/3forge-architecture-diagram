@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>DB Tables Dashboard</title>
+    <style>
+        :root {
+            --bg: #f7efe4;
+            --card: #fffdf8;
+            --ink: #2c221a;
+            --muted: #6f6052;
+            --accent: #0d7f6f;
+            --accent-2: #ea6a47;
+            --line: #eadcca;
+            --shadow: 0 8px 20px rgba(45, 31, 20, 0.08);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Tahoma, sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(1200px 600px at -10% -10%, #f9c88a55, transparent),
+                radial-gradient(1000px 500px at 120% 0%, #8fd6cb55, transparent),
+                var(--bg);
+        }
+
+        .wrap {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #1a9c87, #0b6f61);
+            color: #fff;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+        }
+
+        .hero h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+            letter-spacing: 0.2px;
+        }
+
+        .hero p {
+            margin: 4px 0;
+            opacity: 0.92;
+        }
+
+        .kpis {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 14px;
+            box-shadow: var(--shadow);
+        }
+
+        .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; }
+        .value { font-size: 28px; font-weight: 700; margin-top: 6px; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 14px;
+        }
+
+        .chart-title { margin: 0 0 10px; font-size: 16px; }
+
+        .bar-row { display: grid; grid-template-columns: 130px 1fr 40px; gap: 10px; align-items: center; margin: 8px 0; }
+        .bar-wrap { height: 10px; background: #f3e7d8; border-radius: 999px; overflow: hidden; }
+        .bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+        .bar-name { font-size: 13px; color: var(--muted); }
+        .bar-num { font-size: 13px; font-weight: 600; text-align: right; }
+
+        .tools {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        input, select {
+            height: 38px;
+            border-radius: 10px;
+            border: 1px solid var(--line);
+            background: #fff;
+            color: var(--ink);
+            padding: 0 10px;
+            min-width: 180px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        th, td {
+            border-bottom: 1px solid #f2e7d8;
+            padding: 10px;
+            text-align: left;
+            font-size: 13px;
+            vertical-align: top;
+        }
+
+        th {
+            background: #f8f1e8;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        tr:hover td { background: #fff8ee; }
+
+        .pill {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            background: #edf7f5;
+            color: #0f6659;
+            border: 1px solid #c8e5de;
+        }
+
+        .muted { color: var(--muted); font-size: 12px; }
+
+        @media (max-width: 980px) {
+            .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .grid { grid-template-columns: 1fr; }
+            th, td { font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <section class="hero">
+            <h1>Database Tables Dashboard</h1>
+            <p id="source"></p>
+            <p id="generated"></p>
+        </section>
+
+        <section class="kpis" id="kpis"></section>
+
+        <section class="grid">
+            <div class="card">
+                <h3 class="chart-title">Tables by Owner</h3>
+                <div id="ownerBars"></div>
+            </div>
+            <div class="card">
+                <h3 class="chart-title">Largest Tables by Row Estimate</h3>
+                <div id="largestBars"></div>
+            </div>
+        </section>
+
+        <section class="card" style="margin-top:12px;">
+            <div class="tools">
+                <input id="search" placeholder="Search by table name" />
+                <select id="ownerFilter"></select>
+                <select id="policyFilter"></select>
+            </div>
+            <p class="muted" id="countText"></p>
+            <div style="overflow:auto; max-height: 70vh;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Table</th>
+                            <th>Owner</th>
+                            <th>Policy</th>
+                            <th>Scope</th>
+                            <th>Rows</th>
+                            <th>Columns</th>
+                            <th>Realtime</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rows"></tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const data = {"generated_at_utc": "2026-04-23T05:08:05.466815+00:00", "url": "jdbc:amisql:125.125.126.5:3280", "user": "pwadmin", "driver_class": "com.f1.ami.amidb.jdbc.AmiDbJdbcDriver", "tables": [{"name": "__CENTER", "is_realtime": true, "limit": 250, "storage_mode": "TEXT", "change_policy": "REJECT", "owner": "SYSTEM", "scope": "PUBLIC", "row_estimate": 2, "column_count": 4}, {"name": "__COLUMN", "is_realtime": true, "limit": 250, "storage_mode": null, "change_policy": "REJECT", "owner": "SYSTEM", "scope": "PUBLIC", "row_estimate": 1153, "column_count": 7}, {"name": "__COMMAND", "is_realtime": true, "limit": 250, "storage_mode": null, "change_policy": "REJECT", "owner": "AMI", "scope": "PUBLIC", "row_estimate": 0, "column_count": 22}, {"name": "__CONNECTION", "is_realtime": true, "limit": 250, "storage_mode": null, "change_policy": "REJECT", "owner": "AMI", "scope": "PUBLIC", "row_estimate": 10, "column_count": 11}, {"name": "__DATASOURCE", "is_realtime": true, "limit": 250, "storage_mode": "TEXT", "change_policy": "REJECT", "owner": "AMI", "scope": "PUBLIC", "row_estimate": 3, "column_count": 9}, {"name": "__DATASOURCE_TYPE", "is_realtime": true, "limit": 250, "storage_mode": null, "change_policy": "REJECT", "owner": "AMI", "scope": "PUBLIC", "row_estimate": 18, "column_count": 5}, {"name": "__DBO", "is_realtime": true, "limit": 250, "storage_mode": null, "change_policy": "REJECT", "owner": "SYSTEM", "scope": "PUBLIC", "row_estimate": 0, "column_count": 6}, {"name": "__INDEX", "is_realtime": true, "limit": 250, "storage_mode": null, "change_policy": "REJECT", "owner": "SYSTEM", "scope": "PUBLIC", "row_estimate": 20, "column_count": 8}, {"name": "__PLUGIN", "is_realtime": true, "limit": 250, "storage_mode": null, "change_policy": "REJECT", "owner": "SYSTEM", "scope": "PUBLIC", "row_estimate": 30, "column_count": 4}, {"name": "__PROCEDURE", "is_realtime": true, "limit": 250, "storage_mode": null, "change_policy": "REJECT", "owner": "SYSTEM", "scope": "PUBLIC", "row_estimate": 22, "column_count": 6}, {"name": "__PROPERTY", "is_realtime": true, "limit": 250, "storage_mode": null, "change_policy": "REJECT", "owner": "AMI", "scope": "PUBLIC", "row_estimate": 0, "column_count": 2}, {"name": "__RELAY", "is_realtime": true, "limit": 250, "storage_mode": null, "change_policy": "REJECT", "owner": "SYSTEM", "scope": "PUBLIC", "row_estimate": 1, "column_count": 7}, {"name": "__REPLICATION", "is_realtime": true, "limit": 250, "storage_mode": "TEXT", "change_policy": "REJECT", "owner": "SYSTEM", "scope": "PUBLIC", "row_estimate": 5, "column_count": 6}, {"name": "__RESOURCE", "is_realtime": true, "limit": 250, "storage_mode": null, "change_policy": "REJECT", "owner": "AMI", "scope": "PUBLIC", "row_estimate": 0, "column_count": 6}, {"name": "__STATS", "is_realtime": true, "limit": 250, "storage_mode": null, "change_policy": "REJECT", "owner": "SYSTEM", "scope": "PUBLIC", "row_estimate": 1002, "column_count": 11}, {"name": "__TABLE", "is_realtime": true, "limit": 250, "storage_mode": null, "change_policy": "REJECT", "owner": "SYSTEM", "scope": "PUBLIC", "row_estimate": 55, "column_count": 7}, {"name": "__TIMER", "is_realtime": true, "limit": 250, "storage_mode": null, "change_policy": "REJECT", "owner": "SYSTEM", "scope": "PUBLIC", "row_estimate": 2, "column_count": 9}, {"name": "__TRIGGER", "is_realtime": true, "limit": 250, "storage_mode": null, "change_policy": "REJECT", "owner": "SYSTEM", "scope": "PUBLIC", "row_estimate": 14, "column_count": 7}, {"name": "BuySells", "is_realtime": false, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 9777, "column_count": 22}, {"name": "BuySellsAgg", "is_realtime": false, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 1969, "column_count": 26}, {"name": "BuySellsAggC1", "is_realtime": false, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 2021, "column_count": 27}, {"name": "BuySellsAggC2", "is_realtime": false, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 1969, "column_count": 27}, {"name": "conrevNetBookDelta", "is_realtime": true, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 52, "column_count": 43}, {"name": "GroupedPnl", "is_realtime": true, "limit": 3000, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 20, "column_count": 4}, {"name": "IV_GDBD", "is_realtime": true, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 0, "column_count": 10}, {"name": "MasterExpenseParams", "is_realtime": false, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 10, "column_count": 5}, {"name": "MasterTraderIds", "is_realtime": false, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 169, "column_count": 3}, {"name": "NetBook", "is_realtime": true, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 1969, "column_count": 37}, {"name": "NetBookC", "is_realtime": true, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 1969, "column_count": 40}, {"name": "NetBookGrouped", "is_realtime": false, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 103, "column_count": 8}, {"name": "NetBookGroupedFiltered", "is_realtime": false, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 101, "column_count": 8}, {"name": "NetBookSnap", "is_realtime": true, "limit": 1000, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 24720, "column_count": 37}, {"name": "NetBookSnap2", "is_realtime": true, "limit": 1000, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 0, "column_count": 36}, {"name": "NetPnl", "is_realtime": true, "limit": 3000, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 1, "column_count": 2}, {"name": "nse_tbt_snap", "is_realtime": false, "limit": 100, "storage_mode": null, "change_policy": "ADD", "owner": "USER", "scope": "PUBLIC", "row_estimate": 1321, "column_count": 39}, {"name": "order_msgs_noxml", "is_realtime": true, "limit": 100, "storage_mode": null, "change_policy": "ADD", "owner": "USER", "scope": "PUBLIC", "row_estimate": 9777, "column_count": 30}, {"name": "order_msgs_noxml_clean", "is_realtime": false, "limit": 100, "storage_mode": null, "change_policy": "ADD", "owner": "USER", "scope": "PUBLIC", "row_estimate": 9777, "column_count": 30}, {"name": "ResultSet", "is_realtime": false, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 107269, "column_count": 29}, {"name": "ServerUsers", "is_realtime": false, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 110, "column_count": 13}, {"name": "SquaredOff", "is_realtime": true, "limit": 100, "storage_mode": null, "change_policy": "ADD", "owner": "USER", "scope": "PUBLIC", "row_estimate": 0, "column_count": 32}, {"name": "SquareOff", "is_realtime": true, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 0, "column_count": 35}, {"name": "TRADEBOOK", "is_realtime": null, "limit": null, "storage_mode": "HISTORICAL", "change_policy": null, "owner": "USER", "scope": "PUBLIC", "row_estimate": 4648877, "column_count": 45}, {"name": "TradeBook", "is_realtime": true, "limit": 100, "storage_mode": null, "change_policy": "ADD", "owner": "USER", "scope": "PUBLIC", "row_estimate": 9777, "column_count": 44}, {"name": "TradeBook_TID", "is_realtime": false, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 9777, "column_count": 44}, {"name": "TradeSummary", "is_realtime": true, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 103, "column_count": 7}, {"name": "U1_NetBook", "is_realtime": true, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 0, "column_count": 35}, {"name": "U2_BuySellsAgg", "is_realtime": true, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 0, "column_count": 26}, {"name": "U2_conrevNetBookDelta", "is_realtime": false, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 0, "column_count": 43}, {"name": "U2_NetBook", "is_realtime": true, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 0, "column_count": 35}, {"name": "U2_NetBookConrev", "is_realtime": true, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 0, "column_count": 40}, {"name": "U3_BuySellsAgg", "is_realtime": true, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 0, "column_count": 26}, {"name": "U3_conrevNetBookDelta", "is_realtime": false, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 0, "column_count": 43}, {"name": "U3_NetBook", "is_realtime": true, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 0, "column_count": 35}, {"name": "U3_NetBookConrev", "is_realtime": true, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 0, "column_count": 40}, {"name": "VC3_GDBD", "is_realtime": true, "limit": 100, "storage_mode": null, "change_policy": "REJECT", "owner": "USER", "scope": "PUBLIC", "row_estimate": 0, "column_count": 10}]};
+        const tables = data.tables || [];
+
+        const fmt = (v) => {
+            if (v === null || v === undefined) return "-";
+            if (typeof v === "number") return v.toLocaleString();
+            return String(v);
+        };
+
+        document.getElementById("source").textContent =
+            "URL: " + data.url + " | User: " + data.user + " | Driver: " + data.driver_class;
+        document.getElementById("generated").textContent =
+            "Generated (UTC): " + data.generated_at_utc;
+
+        const totalRows = tables.reduce((acc, t) => acc + (Number(t.row_estimate) || 0), 0);
+        const avgCols = tables.length
+            ? (tables.reduce((acc, t) => acc + (Number(t.column_count) || 0), 0) / tables.length).toFixed(1)
+            : "0.0";
+        const realtimeCount = tables.filter((t) => t.is_realtime === true).length;
+        const systemCount = tables.filter((t) => String(t.owner || "").toUpperCase() === "SYSTEM").length;
+
+        const kpiItems = [
+            ["Total Tables", tables.length],
+            ["Estimated Rows", totalRows.toLocaleString()],
+            ["Realtime Tables", realtimeCount],
+            ["System Tables", systemCount],
+        ];
+
+        const kpis = document.getElementById("kpis");
+        for (const [label, value] of kpiItems) {
+            const div = document.createElement("div");
+            div.className = "card";
+            div.innerHTML =
+                '<div class="label">' + label + '</div><div class="value">' + value + '</div>';
+            kpis.appendChild(div);
+        }
+
+        const countBy = (arr, key) => {
+            const out = new Map();
+            for (const item of arr) {
+                const k = String(item[key] ?? "UNKNOWN");
+                out.set(k, (out.get(k) || 0) + 1);
+            }
+            return Array.from(out.entries()).sort((a, b) => b[1] - a[1]);
+        };
+
+        const renderBars = (elId, rows) => {
+            const max = rows.reduce((m, r) => Math.max(m, r[1]), 1);
+            const parent = document.getElementById(elId);
+            parent.innerHTML = "";
+            for (const [name, val] of rows) {
+                const row = document.createElement("div");
+                row.className = "bar-row";
+                row.innerHTML =
+                    '<div class="bar-name">' + name + '</div>' +
+                    '<div class="bar-wrap"><div class="bar" style="width:' + Math.max(4, (val / max) * 100).toFixed(1) + '%"></div></div>' +
+                    '<div class="bar-num">' + val + '</div>';
+                parent.appendChild(row);
+            }
+        };
+
+        const owners = countBy(tables, "owner");
+        renderBars("ownerBars", owners);
+
+        const biggest = [...tables]
+            .sort((a, b) => (Number(b.row_estimate) || 0) - (Number(a.row_estimate) || 0))
+            .slice(0, 10)
+            .map((t) => [t.name, Number(t.row_estimate) || 0]);
+        renderBars("largestBars", biggest);
+
+        const ownerFilter = document.getElementById("ownerFilter");
+        const policyFilter = document.getElementById("policyFilter");
+        const search = document.getElementById("search");
+        const tbody = document.getElementById("rows");
+        const countText = document.getElementById("countText");
+
+        const uniqueOwners = ["ALL", ...new Set(tables.map((t) => String(t.owner ?? "UNKNOWN")))].sort();
+        const uniquePolicies = ["ALL", ...new Set(tables.map((t) => String(t.change_policy ?? "UNKNOWN")))].sort();
+
+        ownerFilter.innerHTML = uniqueOwners.map((o) => '<option value="' + o + '">Owner: ' + o + '</option>').join("");
+        policyFilter.innerHTML = uniquePolicies.map((p) => '<option value="' + p + '">Policy: ' + p + '</option>').join("");
+
+        const renderTable = () => {
+            const s = search.value.trim().toLowerCase();
+            const owner = ownerFilter.value;
+            const policy = policyFilter.value;
+
+            const filtered = tables.filter((t) => {
+                const matchSearch = !s || String(t.name || "").toLowerCase().includes(s);
+                const matchOwner = owner === "ALL" || String(t.owner ?? "UNKNOWN") === owner;
+                const matchPolicy = policy === "ALL" || String(t.change_policy ?? "UNKNOWN") === policy;
+                return matchSearch && matchOwner && matchPolicy;
+            });
+
+            countText.textContent = "Showing " + filtered.length + " of " + tables.length + " tables | Avg columns: " + avgCols;
+            tbody.innerHTML = filtered
+                .map((t) => {
+                    const realtime = t.is_realtime === null ? "-" : (t.is_realtime ? "Yes" : "No");
+                    return (
+                        "<tr>" +
+                        "<td><strong>" + fmt(t.name) + "</strong></td>" +
+                        "<td><span class='pill'>" + fmt(t.owner) + "</span></td>" +
+                        "<td>" + fmt(t.change_policy) + "</td>" +
+                        "<td>" + fmt(t.scope) + "</td>" +
+                        "<td>" + fmt(t.row_estimate) + "</td>" +
+                        "<td>" + fmt(t.column_count) + "</td>" +
+                        "<td>" + realtime + "</td>" +
+                        "</tr>"
+                    );
+                })
+                .join("");
+        };
+
+        search.addEventListener("input", renderTable);
+        ownerFilter.addEventListener("change", renderTable);
+        policyFilter.addEventListener("change", renderTable);
+        renderTable();
+    </script>
+</body>
+</html>

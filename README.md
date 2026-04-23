@@ -1,5 +1,72 @@
 # 3forge-architecture-diagram
 
+## DB Documentation Script
+
+The project includes a starter script to document database tables via JDBC.
+
+Requirements:
+- Python packages: `jaydebeapi`, `JPype1`
+- Java 17+
+- JDBC driver jar at `./out.jar`
+
+Run:
+
+```bash
+cd /home/3forge/3forge-architecture-diagram
+export AMI_DB_PASSWORD='your-password'
+/home/3forge/3forge-architecture-diagram/.venv/bin/python scripts/document_tables.py
+```
+
+Outputs:
+- `docs/tables.md` (human-readable table catalog)
+- `docs/tables.json` (raw machine-readable payload)
+- `docs/tables_dashboard.html` (presentation dashboard for browser)
+
+## Local CORS Server (for browser view)
+
+If you want to open dashboard assets through HTTP with permissive CORS headers:
+
+```bash
+cd /home/3forge/3forge-architecture-diagram
+/home/3forge/3forge-architecture-diagram/.venv/bin/python scripts/cors_server.py --port 8080 --dir docs
+```
+
+Then open:
+- `http://localhost:8080/tables_dashboard.html`
+
+This server adds:
+- `Access-Control-Allow-Origin: *`
+- `Access-Control-Allow-Methods: GET, OPTIONS`
+- `Access-Control-Allow-Headers: Content-Type, Authorization`
+
+## One-Command Dashboard Launcher
+
+Run data refresh + CORS server together:
+
+```bash
+cd /home/3forge/3forge-architecture-diagram
+AMI_DB_PASSWORD='pwadmin123' ./scripts/start_dashboard.sh
+```
+
+Open:
+- `http://localhost:8080/tables_dashboard.html`
+
+Options:
+- `PORT=8090 ./scripts/start_dashboard.sh` to change port.
+- `SKIP_REFRESH=1 ./scripts/start_dashboard.sh` to serve existing docs without querying DB.
+
+Optional flags:
+
+```bash
+/home/3forge/3forge-architecture-diagram/.venv/bin/python scripts/document_tables.py \
+	--url 'jdbc:amisql:125.125.126.5:3280' \
+	--user 'pwadmin' \
+	--password '***' \
+	--jar-path './out.jar' \
+	--output-md './docs/tables.md' \
+	--output-json './docs/tables.json'
+```
+
 
 
 ## Getting started
