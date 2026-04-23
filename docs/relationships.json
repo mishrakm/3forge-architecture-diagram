@@ -1,0 +1,203 @@
+{
+  "relationships": [
+    {
+      "left_table": "TRADEBOOK",
+      "right_table": "TradeBook",
+      "shared_keys": [
+        "algoid",
+        "brokerid",
+        "uid"
+      ],
+      "strength": 3
+    },
+    {
+      "left_table": "TRADEBOOK",
+      "right_table": "TradeBook_TID",
+      "shared_keys": [
+        "algoid",
+        "brokerid",
+        "uid"
+      ],
+      "strength": 3
+    },
+    {
+      "left_table": "TradeBook",
+      "right_table": "TradeBook_TID",
+      "shared_keys": [
+        "algoid",
+        "brokerid",
+        "uid"
+      ],
+      "strength": 3
+    },
+    {
+      "left_table": "MasterExpenseParams",
+      "right_table": "ServerUsers",
+      "shared_keys": [
+        "id"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "MasterExpenseParams",
+      "right_table": "SquareOff",
+      "shared_keys": [
+        "id"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "MasterExpenseParams",
+      "right_table": "SquaredOff",
+      "shared_keys": [
+        "id"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "MasterExpenseParams",
+      "right_table": "__COMMAND",
+      "shared_keys": [
+        "id"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "ServerUsers",
+      "right_table": "SquareOff",
+      "shared_keys": [
+        "id"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "ServerUsers",
+      "right_table": "SquaredOff",
+      "shared_keys": [
+        "id"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "ServerUsers",
+      "right_table": "__COMMAND",
+      "shared_keys": [
+        "id"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "SquareOff",
+      "right_table": "SquaredOff",
+      "shared_keys": [
+        "id"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "SquareOff",
+      "right_table": "__COMMAND",
+      "shared_keys": [
+        "id"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "SquaredOff",
+      "right_table": "__COMMAND",
+      "shared_keys": [
+        "id"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "TRADEBOOK",
+      "right_table": "order_msgs_noxml",
+      "shared_keys": [
+        "algoid"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "TRADEBOOK",
+      "right_table": "order_msgs_noxml_clean",
+      "shared_keys": [
+        "algoid"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "TradeBook",
+      "right_table": "order_msgs_noxml",
+      "shared_keys": [
+        "algoid"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "TradeBook",
+      "right_table": "order_msgs_noxml_clean",
+      "shared_keys": [
+        "algoid"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "TradeBook_TID",
+      "right_table": "order_msgs_noxml",
+      "shared_keys": [
+        "algoid"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "TradeBook_TID",
+      "right_table": "order_msgs_noxml_clean",
+      "shared_keys": [
+        "algoid"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "U2_conrevNetBookDelta",
+      "right_table": "U3_conrevNetBookDelta",
+      "shared_keys": [
+        "leggroupid"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "U2_conrevNetBookDelta",
+      "right_table": "conrevNetBookDelta",
+      "shared_keys": [
+        "leggroupid"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "U3_conrevNetBookDelta",
+      "right_table": "conrevNetBookDelta",
+      "shared_keys": [
+        "leggroupid"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "__DATASOURCE",
+      "right_table": "__RELAY",
+      "shared_keys": [
+        "relayid"
+      ],
+      "strength": 1
+    },
+    {
+      "left_table": "order_msgs_noxml",
+      "right_table": "order_msgs_noxml_clean",
+      "shared_keys": [
+        "algoid"
+      ],
+      "strength": 1
+    }
+  ],
+  "generated_at_utc": "2026-04-23T05:51:04.482251+00:00"
+}

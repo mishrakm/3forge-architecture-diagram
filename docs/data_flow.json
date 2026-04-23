@@ -1,0 +1,609 @@
+{
+  "data_flow": [
+    {
+      "table": "BuySells",
+      "category": "core_operational",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": false,
+      "column_count": 22,
+      "upstream_hints": [
+        "BuySellsAgg",
+        "BuySellsAggC1",
+        "BuySellsAggC2",
+        "U2_BuySellsAgg",
+        "U3_BuySellsAgg"
+      ]
+    },
+    {
+      "table": "MasterExpenseParams",
+      "category": "core_operational",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": false,
+      "column_count": 5,
+      "upstream_hints": []
+    },
+    {
+      "table": "MasterTraderIds",
+      "category": "core_operational",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": false,
+      "column_count": 3,
+      "upstream_hints": []
+    },
+    {
+      "table": "order_msgs_noxml_clean",
+      "category": "core_operational",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": false,
+      "column_count": 30,
+      "upstream_hints": []
+    },
+    {
+      "table": "ServerUsers",
+      "category": "core_operational",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": false,
+      "column_count": 13,
+      "upstream_hints": []
+    },
+    {
+      "table": "TradeBook_TID",
+      "category": "core_operational",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": false,
+      "column_count": 44,
+      "upstream_hints": []
+    },
+    {
+      "table": "BuySellsAgg",
+      "category": "derived_aggregate",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": false,
+      "column_count": 26,
+      "upstream_hints": [
+        "BuySells",
+        "BuySellsAggC1",
+        "BuySellsAggC2",
+        "U2_BuySellsAgg",
+        "U3_BuySellsAgg"
+      ]
+    },
+    {
+      "table": "BuySellsAggC1",
+      "category": "derived_aggregate",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": false,
+      "column_count": 27,
+      "upstream_hints": [
+        "BuySells",
+        "BuySellsAgg",
+        "BuySellsAggC2",
+        "U2_BuySellsAgg",
+        "U3_BuySellsAgg"
+      ]
+    },
+    {
+      "table": "BuySellsAggC2",
+      "category": "derived_aggregate",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": false,
+      "column_count": 27,
+      "upstream_hints": [
+        "BuySells",
+        "BuySellsAgg",
+        "BuySellsAggC1",
+        "U2_BuySellsAgg",
+        "U3_BuySellsAgg"
+      ]
+    },
+    {
+      "table": "conrevNetBookDelta",
+      "category": "derived_aggregate",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 43,
+      "upstream_hints": [
+        "U2_conrevNetBookDelta",
+        "U3_conrevNetBookDelta"
+      ]
+    },
+    {
+      "table": "GroupedPnl",
+      "category": "derived_aggregate",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 4,
+      "upstream_hints": []
+    },
+    {
+      "table": "NetBookGrouped",
+      "category": "derived_aggregate",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": false,
+      "column_count": 8,
+      "upstream_hints": [
+        "NetBook",
+        "NetBookC",
+        "NetBookGroupedFiltered",
+        "NetBookSnap",
+        "NetBookSnap2",
+        "U1_NetBook"
+      ]
+    },
+    {
+      "table": "NetBookGroupedFiltered",
+      "category": "derived_aggregate",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": false,
+      "column_count": 8,
+      "upstream_hints": [
+        "NetBookGrouped"
+      ]
+    },
+    {
+      "table": "NetBookSnap",
+      "category": "derived_aggregate",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 37,
+      "upstream_hints": [
+        "NetBook",
+        "NetBookC",
+        "NetBookGrouped",
+        "NetBookGroupedFiltered",
+        "NetBookSnap2",
+        "U1_NetBook"
+      ]
+    },
+    {
+      "table": "NetBookSnap2",
+      "category": "derived_aggregate",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 36,
+      "upstream_hints": []
+    },
+    {
+      "table": "nse_tbt_snap",
+      "category": "derived_aggregate",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": false,
+      "column_count": 39,
+      "upstream_hints": []
+    },
+    {
+      "table": "ResultSet",
+      "category": "derived_aggregate",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": false,
+      "column_count": 29,
+      "upstream_hints": []
+    },
+    {
+      "table": "TradeSummary",
+      "category": "derived_aggregate",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 7,
+      "upstream_hints": [
+        "MasterTraderIds",
+        "TRADEBOOK",
+        "TradeBook",
+        "TradeBook_TID"
+      ]
+    },
+    {
+      "table": "U2_BuySellsAgg",
+      "category": "derived_aggregate",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 26,
+      "upstream_hints": [
+        "BuySells",
+        "BuySellsAgg",
+        "BuySellsAggC1",
+        "BuySellsAggC2",
+        "U3_BuySellsAgg"
+      ]
+    },
+    {
+      "table": "U2_conrevNetBookDelta",
+      "category": "derived_aggregate",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": false,
+      "column_count": 43,
+      "upstream_hints": [
+        "U3_conrevNetBookDelta",
+        "conrevNetBookDelta"
+      ]
+    },
+    {
+      "table": "U3_BuySellsAgg",
+      "category": "derived_aggregate",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 26,
+      "upstream_hints": [
+        "BuySells",
+        "BuySellsAgg",
+        "BuySellsAggC1",
+        "BuySellsAggC2",
+        "U2_BuySellsAgg"
+      ]
+    },
+    {
+      "table": "U3_conrevNetBookDelta",
+      "category": "derived_aggregate",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": false,
+      "column_count": 43,
+      "upstream_hints": [
+        "U2_conrevNetBookDelta",
+        "conrevNetBookDelta"
+      ]
+    },
+    {
+      "table": "TRADEBOOK",
+      "category": "source_historical",
+      "owner": "USER",
+      "storage_mode": "HISTORICAL",
+      "is_realtime": null,
+      "column_count": 45,
+      "upstream_hints": [
+        "TradeBook_TID"
+      ]
+    },
+    {
+      "table": "IV_GDBD",
+      "category": "streaming_live",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 10,
+      "upstream_hints": []
+    },
+    {
+      "table": "NetBook",
+      "category": "streaming_live",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 37,
+      "upstream_hints": [
+        "NetBookC",
+        "NetBookGrouped",
+        "NetBookGroupedFiltered",
+        "NetBookSnap",
+        "NetBookSnap2",
+        "U1_NetBook"
+      ]
+    },
+    {
+      "table": "NetBookC",
+      "category": "streaming_live",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 40,
+      "upstream_hints": [
+        "U2_NetBookConrev",
+        "U3_NetBookConrev"
+      ]
+    },
+    {
+      "table": "NetPnl",
+      "category": "streaming_live",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 2,
+      "upstream_hints": []
+    },
+    {
+      "table": "order_msgs_noxml",
+      "category": "streaming_live",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 30,
+      "upstream_hints": [
+        "order_msgs_noxml_clean"
+      ]
+    },
+    {
+      "table": "SquaredOff",
+      "category": "streaming_live",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 32,
+      "upstream_hints": []
+    },
+    {
+      "table": "SquareOff",
+      "category": "streaming_live",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 35,
+      "upstream_hints": []
+    },
+    {
+      "table": "TradeBook",
+      "category": "streaming_live",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 44,
+      "upstream_hints": [
+        "TradeBook_TID"
+      ]
+    },
+    {
+      "table": "U1_NetBook",
+      "category": "streaming_live",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 35,
+      "upstream_hints": [
+        "NetBook",
+        "NetBookC",
+        "NetBookGrouped",
+        "NetBookGroupedFiltered",
+        "NetBookSnap",
+        "NetBookSnap2"
+      ]
+    },
+    {
+      "table": "U2_NetBook",
+      "category": "streaming_live",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 35,
+      "upstream_hints": [
+        "NetBook",
+        "NetBookC",
+        "NetBookGrouped",
+        "NetBookGroupedFiltered",
+        "NetBookSnap",
+        "NetBookSnap2"
+      ]
+    },
+    {
+      "table": "U2_NetBookConrev",
+      "category": "streaming_live",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 40,
+      "upstream_hints": [
+        "U3_NetBookConrev"
+      ]
+    },
+    {
+      "table": "U3_NetBook",
+      "category": "streaming_live",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 35,
+      "upstream_hints": [
+        "NetBook",
+        "NetBookC",
+        "NetBookGrouped",
+        "NetBookGroupedFiltered",
+        "NetBookSnap",
+        "NetBookSnap2"
+      ]
+    },
+    {
+      "table": "U3_NetBookConrev",
+      "category": "streaming_live",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 40,
+      "upstream_hints": [
+        "U2_NetBookConrev"
+      ]
+    },
+    {
+      "table": "VC3_GDBD",
+      "category": "streaming_live",
+      "owner": "USER",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 10,
+      "upstream_hints": []
+    },
+    {
+      "table": "__CENTER",
+      "category": "system",
+      "owner": "SYSTEM",
+      "storage_mode": "TEXT",
+      "is_realtime": true,
+      "column_count": 4,
+      "upstream_hints": []
+    },
+    {
+      "table": "__COLUMN",
+      "category": "system",
+      "owner": "SYSTEM",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 7,
+      "upstream_hints": []
+    },
+    {
+      "table": "__COMMAND",
+      "category": "system",
+      "owner": "AMI",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 22,
+      "upstream_hints": []
+    },
+    {
+      "table": "__CONNECTION",
+      "category": "system",
+      "owner": "AMI",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 11,
+      "upstream_hints": []
+    },
+    {
+      "table": "__DATASOURCE",
+      "category": "system",
+      "owner": "AMI",
+      "storage_mode": "TEXT",
+      "is_realtime": true,
+      "column_count": 9,
+      "upstream_hints": [
+        "__DATASOURCE_TYPE"
+      ]
+    },
+    {
+      "table": "__DATASOURCE_TYPE",
+      "category": "system",
+      "owner": "AMI",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 5,
+      "upstream_hints": []
+    },
+    {
+      "table": "__DBO",
+      "category": "system",
+      "owner": "SYSTEM",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 6,
+      "upstream_hints": []
+    },
+    {
+      "table": "__INDEX",
+      "category": "system",
+      "owner": "SYSTEM",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 8,
+      "upstream_hints": []
+    },
+    {
+      "table": "__PLUGIN",
+      "category": "system",
+      "owner": "SYSTEM",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 4,
+      "upstream_hints": []
+    },
+    {
+      "table": "__PROCEDURE",
+      "category": "system",
+      "owner": "SYSTEM",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 6,
+      "upstream_hints": []
+    },
+    {
+      "table": "__PROPERTY",
+      "category": "system",
+      "owner": "AMI",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 2,
+      "upstream_hints": []
+    },
+    {
+      "table": "__RELAY",
+      "category": "system",
+      "owner": "SYSTEM",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 7,
+      "upstream_hints": []
+    },
+    {
+      "table": "__REPLICATION",
+      "category": "system",
+      "owner": "SYSTEM",
+      "storage_mode": "TEXT",
+      "is_realtime": true,
+      "column_count": 6,
+      "upstream_hints": []
+    },
+    {
+      "table": "__RESOURCE",
+      "category": "system",
+      "owner": "AMI",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 6,
+      "upstream_hints": []
+    },
+    {
+      "table": "__STATS",
+      "category": "system",
+      "owner": "SYSTEM",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 11,
+      "upstream_hints": []
+    },
+    {
+      "table": "__TABLE",
+      "category": "system",
+      "owner": "SYSTEM",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 7,
+      "upstream_hints": []
+    },
+    {
+      "table": "__TIMER",
+      "category": "system",
+      "owner": "SYSTEM",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 9,
+      "upstream_hints": []
+    },
+    {
+      "table": "__TRIGGER",
+      "category": "system",
+      "owner": "SYSTEM",
+      "storage_mode": null,
+      "is_realtime": true,
+      "column_count": 7,
+      "upstream_hints": []
+    }
+  ],
+  "generated_at_utc": "2026-04-23T05:51:04.482251+00:00"
+}

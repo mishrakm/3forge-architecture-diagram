@@ -1,0 +1,984 @@
+{
+  "business_metrics": [
+    {
+      "table": "BuySells",
+      "numeric_columns": [
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "BuyQty",
+        "BuyValue",
+        "SellQty",
+        "SellValue",
+        "BExpense",
+        "SExpense",
+        "TraderId"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        },
+        {
+          "metric": "net_trade_pnl",
+          "formula_hint": "SellValue - BuyValue - BExpense - SExpense"
+        },
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "BuySellsAgg",
+      "numeric_columns": [
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "BuyQty",
+        "BuyValue",
+        "SellQty",
+        "SellValue",
+        "NetPosition",
+        "NetValue",
+        "NetPrice",
+        "BuyAvg",
+        "SellAvg",
+        "Expense",
+        "TraderId"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        },
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "BuySellsAggC1",
+      "numeric_columns": [
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "BuyQty",
+        "BuyValue",
+        "SellQty",
+        "SellValue",
+        "NetPosition",
+        "NetValue",
+        "NetPrice",
+        "BuyAvg",
+        "SellAvg",
+        "Expense",
+        "TraderId",
+        "AlgoBPL"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        },
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "BuySellsAggC2",
+      "numeric_columns": [
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "BuyQty",
+        "BuyValue",
+        "SellQty",
+        "SellValue",
+        "NetPosition",
+        "NetValue",
+        "NetPrice",
+        "BuyAvg",
+        "SellAvg",
+        "Expense",
+        "TraderId",
+        "AlgoBPL"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        },
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "conrevNetBookDelta",
+      "numeric_columns": [
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "BuyQty",
+        "BuyValue",
+        "BuyAvg",
+        "SellQty",
+        "SellValue",
+        "SellAvg",
+        "NetPosition",
+        "NetValue",
+        "NetPrice",
+        "LTP",
+        "FLTP",
+        "Vega",
+        "Theta",
+        "Gamma",
+        "Delta",
+        "Rho",
+        "IV",
+        "BPL",
+        "MTM",
+        "MTMF",
+        "Expense",
+        "LegDiff",
+        "LegQty",
+        "TraderId"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        },
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "GroupedPnl",
+      "numeric_columns": [
+        "Positions",
+        "PNL",
+        "tt"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "pnl_reported",
+          "formula_hint": "Use existing pnl columns: PNL"
+        }
+      ]
+    },
+    {
+      "table": "IV_GDBD",
+      "numeric_columns": [
+        "GoodDays",
+        "GDP",
+        "BadDays",
+        "VeryBadDays",
+        "BDL",
+        "LossPer",
+        "PriorityScore",
+        "PNL"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "pnl_reported",
+          "formula_hint": "Use existing pnl columns: PNL"
+        }
+      ]
+    },
+    {
+      "table": "NetBook",
+      "numeric_columns": [
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "BuyQty",
+        "BuyValue",
+        "BuyAvg",
+        "SellQty",
+        "SellValue",
+        "SellAvg",
+        "NetQty",
+        "NetValue",
+        "NetPrice",
+        "LTP",
+        "FLTP",
+        "Vega",
+        "Theta",
+        "Gamma",
+        "Delta",
+        "Rho",
+        "IV",
+        "BPL",
+        "MTM",
+        "MTMF",
+        "Expense",
+        "TraderId"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        },
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "NetBookC",
+      "numeric_columns": [
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "BuyQty",
+        "BuyValue",
+        "BuyAvg",
+        "SellQty",
+        "SellValue",
+        "SellAvg",
+        "NetQty",
+        "NetValue",
+        "NetPrice",
+        "LTP",
+        "FLTP",
+        "Vega",
+        "Theta",
+        "Gamma",
+        "Delta",
+        "Rho",
+        "IV",
+        "BPL",
+        "MTM",
+        "MTMF",
+        "Expense",
+        "TraderId",
+        "AlgoBPL",
+        "TradeBPL",
+        "TotalBPL"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        },
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "NetBookGrouped",
+      "numeric_columns": [
+        "Positions",
+        "PNL",
+        "Expense"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "pnl_reported",
+          "formula_hint": "Use existing pnl columns: PNL"
+        }
+      ]
+    },
+    {
+      "table": "NetBookGroupedFiltered",
+      "numeric_columns": [
+        "Positions",
+        "PNL",
+        "tt"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "pnl_reported",
+          "formula_hint": "Use existing pnl columns: PNL"
+        }
+      ]
+    },
+    {
+      "table": "NetBookSnap",
+      "numeric_columns": [
+        "snapTime",
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "BuyQty",
+        "BuyValue",
+        "SellQty",
+        "SellValue",
+        "NetQty",
+        "NetValue",
+        "BuyAvg",
+        "SellAvg",
+        "NetPrice",
+        "LTP",
+        "Vega",
+        "Theta",
+        "Gamma",
+        "Delta",
+        "Rho",
+        "IV",
+        "FLTP",
+        "BPL",
+        "MTM",
+        "MTMF",
+        "Expense",
+        "TraderId"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        }
+      ]
+    },
+    {
+      "table": "NetBookSnap2",
+      "numeric_columns": [
+        "snapTime",
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "BuyQty",
+        "BuyValue",
+        "SellQty",
+        "SellValue",
+        "NetQty",
+        "NetValue",
+        "BuyAvg",
+        "SellAvg",
+        "NetPrice",
+        "LTP",
+        "Vega",
+        "Theta",
+        "Gamma",
+        "Delta",
+        "Rho",
+        "IV",
+        "FLTP",
+        "BPL",
+        "MTM",
+        "MTMF",
+        "Expense"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        }
+      ]
+    },
+    {
+      "table": "NetPnl",
+      "numeric_columns": [
+        "netPNL",
+        "tt"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "pnl_reported",
+          "formula_hint": "Use existing pnl columns: netPNL"
+        }
+      ]
+    },
+    {
+      "table": "SquaredOff",
+      "numeric_columns": [
+        "PfNo",
+        "StrikePrice",
+        "NetValue",
+        "NetPrice",
+        "Expense",
+        "TraderId",
+        "ConsumableQty",
+        "SellQty",
+        "SellPrice",
+        "SellAvg",
+        "SellValue",
+        "id",
+        "NetPosition",
+        "sent",
+        "adjusted"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        },
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "SquareOff",
+      "numeric_columns": [
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "BuyQty",
+        "BuyValue",
+        "SellQty",
+        "SellValue",
+        "NetPosition",
+        "NetValue",
+        "NetPrice",
+        "BuyAvg",
+        "SellAvg",
+        "Expense",
+        "TraderId",
+        "sent",
+        "NetQty",
+        "Adjusted",
+        "AdjustedQty",
+        "id",
+        "ts",
+        "adjusted",
+        "Qty"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        },
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "TRADEBOOK",
+      "numeric_columns": [
+        "UID",
+        "AutoNo",
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "OrderType",
+        "Price",
+        "FillPrice",
+        "FillNumber",
+        "FillQty",
+        "LeavesQty",
+        "LastShare",
+        "ActualQty",
+        "ExchOrderNo",
+        "FilledLots",
+        "AlgoId",
+        "AlgoCategory",
+        "TraderId",
+        "LTP"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "TradeBook",
+      "numeric_columns": [
+        "UID",
+        "AutoNo",
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "OrderType",
+        "Price",
+        "FillPrice",
+        "FillNumber",
+        "FillQty",
+        "LeavesQty",
+        "LastShare",
+        "ActualQty",
+        "ExchOrderNo",
+        "FilledLots",
+        "AlgoId",
+        "AlgoCategory",
+        "TraderId",
+        "LTP"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "TradeBook_TID",
+      "numeric_columns": [
+        "UID",
+        "AutoNo",
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "OrderType",
+        "Price",
+        "FillPrice",
+        "FillNumber",
+        "FillQty",
+        "LeavesQty",
+        "LastShare",
+        "ActualQty",
+        "ExchOrderNo",
+        "FilledLots",
+        "AlgoId",
+        "AlgoCategory",
+        "TraderId",
+        "LTP"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "U1_NetBook",
+      "numeric_columns": [
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "BuyQty",
+        "BuyValue",
+        "SellQty",
+        "SellValue",
+        "NetQty",
+        "NetValue",
+        "BuyAvg",
+        "SellAvg",
+        "NetPrice",
+        "LTP",
+        "Vega",
+        "Theta",
+        "Gamma",
+        "Delta",
+        "Rho",
+        "IV",
+        "FLTP",
+        "BPL",
+        "MTM",
+        "MTMF",
+        "Expense"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        }
+      ]
+    },
+    {
+      "table": "U2_BuySellsAgg",
+      "numeric_columns": [
+        "PfNo",
+        "Token",
+        "TraderId",
+        "StrikePrice",
+        "BuyQty",
+        "BuyValue",
+        "SellQty",
+        "SellValue",
+        "NetPosition",
+        "NetValue",
+        "BuyAvg",
+        "SellAvg",
+        "NetPrice",
+        "Expense"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        },
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "U2_conrevNetBookDelta",
+      "numeric_columns": [
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "BuyQty",
+        "BuyValue",
+        "BuyAvg",
+        "SellQty",
+        "SellValue",
+        "SellAvg",
+        "NetPosition",
+        "NetValue",
+        "NetPrice",
+        "LTP",
+        "FLTP",
+        "Vega",
+        "Theta",
+        "Gamma",
+        "Delta",
+        "Rho",
+        "IV",
+        "BPL",
+        "MTM",
+        "MTMF",
+        "Expense",
+        "LegDiff",
+        "LegQty",
+        "TraderId"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        },
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "U2_NetBook",
+      "numeric_columns": [
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "BuyQty",
+        "BuyValue",
+        "SellQty",
+        "SellValue",
+        "NetQty",
+        "NetValue",
+        "BuyAvg",
+        "SellAvg",
+        "NetPrice",
+        "LTP",
+        "Vega",
+        "Theta",
+        "Gamma",
+        "Delta",
+        "Rho",
+        "IV",
+        "FLTP",
+        "BPL",
+        "MTM",
+        "MTMF",
+        "Expense"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        }
+      ]
+    },
+    {
+      "table": "U2_NetBookConrev",
+      "numeric_columns": [
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "TraderId",
+        "BuyQty",
+        "BuyValue",
+        "SellQty",
+        "SellValue",
+        "NetQty",
+        "NetValue",
+        "BuyAvg",
+        "SellAvg",
+        "NetPrice",
+        "LTP",
+        "Vega",
+        "Theta",
+        "Gamma",
+        "Delta",
+        "Rho",
+        "IV",
+        "FLTP",
+        "AlgoBPL",
+        "TradeBPL",
+        "TotalBPL",
+        "BPL",
+        "MTM",
+        "MTMF",
+        "Expense"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        },
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "U3_BuySellsAgg",
+      "numeric_columns": [
+        "PfNo",
+        "Token",
+        "TraderId",
+        "StrikePrice",
+        "BuyQty",
+        "BuyValue",
+        "SellQty",
+        "SellValue",
+        "NetPosition",
+        "NetValue",
+        "BuyAvg",
+        "SellAvg",
+        "NetPrice",
+        "Expense"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        },
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "U3_conrevNetBookDelta",
+      "numeric_columns": [
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "BuyQty",
+        "BuyValue",
+        "BuyAvg",
+        "SellQty",
+        "SellValue",
+        "SellAvg",
+        "NetPosition",
+        "NetValue",
+        "NetPrice",
+        "LTP",
+        "FLTP",
+        "Vega",
+        "Theta",
+        "Gamma",
+        "Delta",
+        "Rho",
+        "IV",
+        "BPL",
+        "MTM",
+        "MTMF",
+        "Expense",
+        "LegDiff",
+        "LegQty",
+        "TraderId"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        },
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "U3_NetBook",
+      "numeric_columns": [
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "BuyQty",
+        "BuyValue",
+        "SellQty",
+        "SellValue",
+        "NetQty",
+        "NetValue",
+        "BuyAvg",
+        "SellAvg",
+        "NetPrice",
+        "LTP",
+        "Vega",
+        "Theta",
+        "Gamma",
+        "Delta",
+        "Rho",
+        "IV",
+        "FLTP",
+        "BPL",
+        "MTM",
+        "MTMF",
+        "Expense"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        }
+      ]
+    },
+    {
+      "table": "U3_NetBookConrev",
+      "numeric_columns": [
+        "PfNo",
+        "Token",
+        "StrikePrice",
+        "TraderId",
+        "BuyQty",
+        "BuyValue",
+        "SellQty",
+        "SellValue",
+        "NetQty",
+        "NetValue",
+        "BuyAvg",
+        "SellAvg",
+        "NetPrice",
+        "LTP",
+        "Vega",
+        "Theta",
+        "Gamma",
+        "Delta",
+        "Rho",
+        "IV",
+        "FLTP",
+        "AlgoBPL",
+        "TradeBPL",
+        "TotalBPL",
+        "BPL",
+        "MTM",
+        "MTMF",
+        "Expense"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "turnover_qty",
+          "formula_hint": "BuyQty + SellQty"
+        },
+        {
+          "metric": "turnover_value",
+          "formula_hint": "BuyValue + SellValue"
+        },
+        {
+          "metric": "net_position_by_symbol",
+          "formula_hint": "Aggregate by Symbol, NetBook"
+        }
+      ]
+    },
+    {
+      "table": "VC3_GDBD",
+      "numeric_columns": [
+        "GoodDays",
+        "GDP",
+        "BadDays",
+        "VeryBadDays",
+        "BDL",
+        "LossPer",
+        "PriorityScore",
+        "PNL"
+      ],
+      "suggested_metrics": [
+        {
+          "metric": "pnl_reported",
+          "formula_hint": "Use existing pnl columns: PNL"
+        }
+      ]
+    }
+  ],
+  "generated_at_utc": "2026-04-23T05:51:04.482251+00:00"
+}

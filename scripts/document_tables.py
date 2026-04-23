@@ -4,9 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import os
+import re
 import sys
+from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -23,6 +26,14 @@ DEFAULTS = {
     "output_md": "./docs/tables.md",
     "output_json": "./docs/tables.json",
     "output_dashboard": "./docs/tables_dashboard.html",
+    "output_schema_md": "./docs/schema_catalog.md",
+    "output_schema_json": "./docs/schema_catalog.json",
+    "output_relationships_md": "./docs/relationships.md",
+    "output_relationships_json": "./docs/relationships.json",
+    "output_dataflow_md": "./docs/data_flow.md",
+    "output_dataflow_json": "./docs/data_flow.json",
+    "output_metrics_md": "./docs/business_metrics.md",
+    "output_metrics_json": "./docs/business_metrics.json",
 }
 
 
@@ -38,6 +49,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-md", default=DEFAULTS["output_md"])
     parser.add_argument("--output-json", default=DEFAULTS["output_json"])
     parser.add_argument("--output-dashboard", default=DEFAULTS["output_dashboard"])
+    parser.add_argument("--output-schema-md", default=DEFAULTS["output_schema_md"])
+    parser.add_argument("--output-schema-json", default=DEFAULTS["output_schema_json"])
+    parser.add_argument(
+        "--output-relationships-md", default=DEFAULTS["output_relationships_md"]
+    )
+    parser.add_argument(
+        "--output-relationships-json", default=DEFAULTS["output_relationships_json"]
+    )
+    parser.add_argument("--output-dataflow-md", default=DEFAULTS["output_dataflow_md"])
+    parser.add_argument(
+        "--output-dataflow-json", default=DEFAULTS["output_dataflow_json"]
+    )
+    parser.add_argument("--output-metrics-md", default=DEFAULTS["output_metrics_md"])
+    parser.add_argument("--output-metrics-json", default=DEFAULTS["output_metrics_json"])
     parser.add_argument(
         "--java-home",
         default=os.getenv(
@@ -69,7 +94,7 @@ def ensure_jvm(java_home: str, classpath: list[str]) -> None:
     jpype.startJVM(detected, classpath=classpath)
 
 
-def fetch_show_tables(
+def connect_db(
     driver_class: str,
     url: str,
     user: str,
@@ -83,19 +108,233 @@ def fetch_show_tables(
 
     ensure_jvm(java_home=java_home, classpath=[jar_abs])
 
-    connection = None
-    cursor = None
+    return jaydebeapi.connect(driver_class, url, [user, password])
+
+
+def fetch_show_tables(cursor: Any) -> list[tuple[Any, ...]]:
+    cursor.execute("show tables")
+    rows = cursor.fetchall()
+    return sorted(rows, key=lambda row: str(row[0]).lower())
+
+
+def fetch_table_schema(cursor: Any, table_name: str) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "table": table_name,
+        "columns": [],
+        "column_count": 0,
+        "ddl": None,
+        "errors": [],
+    }
+
     try:
-        connection = jaydebeapi.connect(driver_class, url, [user, password])
-        cursor = connection.cursor()
-        cursor.execute("show tables")
+        cursor.execute(f"show table {table_name}")
         rows = cursor.fetchall()
-        return sorted(rows, key=lambda row: str(row[0]).lower())
-    finally:
-        if cursor is not None:
-            cursor.close()
-        if connection is not None:
-            connection.close()
+        out["columns"] = [
+            {
+                "name": str(r[0]),
+                "type": str(r[1]),
+                "position": int(r[2]) if r[2] is not None else None,
+                "nullable": bool(r[3]) if r[3] is not None else None,
+                "index_mode": str(r[4]) if r[4] is not None else None,
+            }
+            for r in rows
+        ]
+        out["column_count"] = len(out["columns"])
+    except Exception as exc:  # noqa: BLE001
+        out["errors"].append(f"show table failed: {exc}")
+
+    try:
+        cursor.execute(f"describe table {table_name}")
+        rows = cursor.fetchall()
+        if rows:
+            out["ddl"] = str(rows[0][0])
+    except Exception as exc:  # noqa: BLE001
+        out["errors"].append(f"describe table failed: {exc}")
+
+    return out
+
+
+def build_table_records(rows: list[list[Any]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        is_realtime = row[1]
+        if isinstance(is_realtime, int):
+            is_realtime = bool(is_realtime)
+        out.append(
+            {
+                "name": str(row[0]),
+                "is_realtime": is_realtime,
+                "initial_capacity": row[2],
+                "storage_mode": row[3],
+                "change_policy": row[4],
+                "owner": row[5],
+                "scope": row[6],
+                "row_estimate": row[7],
+                "column_count": row[8],
+            }
+        )
+    return out
+
+
+def infer_relationships(schemas: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_column: dict[str, list[str]] = defaultdict(list)
+    for schema in schemas:
+        table = schema["table"]
+        for col in schema.get("columns", []):
+            name = str(col["name"]).lower()
+            by_column[name].append(table)
+
+    key_like = {
+        "token",
+        "traderid",
+        "symbol",
+        "pfno",
+        "netbook",
+        "acc",
+        "user",
+    }
+    pair_scores: dict[tuple[str, str], set[str]] = defaultdict(set)
+
+    for col, tables in by_column.items():
+        unique_tables = sorted(set(tables))
+        if len(unique_tables) < 2:
+            continue
+        is_keyish = col.endswith("id") or col in key_like
+        if not is_keyish:
+            continue
+        if len(unique_tables) > 12:
+            continue
+        for left, right in itertools.combinations(unique_tables, 2):
+            pair_scores[(left, right)].add(col)
+
+    relationships = [
+        {
+            "left_table": pair[0],
+            "right_table": pair[1],
+            "shared_keys": sorted(cols),
+            "strength": len(cols),
+        }
+        for pair, cols in pair_scores.items()
+    ]
+    relationships.sort(key=lambda x: (-x["strength"], x["left_table"], x["right_table"]))
+    return relationships
+
+
+def classify_data_flow(
+    table_records: list[dict[str, Any]], schemas: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    existing = {t["name"] for t in table_records}
+    schema_by_name = {s["table"]: s for s in schemas}
+    out: list[dict[str, Any]] = []
+
+    for table in table_records:
+        name = table["name"]
+        n = name.lower()
+        owner = str(table.get("owner") or "").upper()
+        storage_mode = str(table.get("storage_mode") or "").upper()
+        is_realtime = table.get("is_realtime") is True
+
+        if owner in {"SYSTEM", "AMI"}:
+            category = "system"
+        elif storage_mode == "HISTORICAL":
+            category = "source_historical"
+        elif any(k in n for k in ["agg", "summary", "group", "delta", "snap", "result"]):
+            category = "derived_aggregate"
+        elif is_realtime:
+            category = "streaming_live"
+        else:
+            category = "core_operational"
+
+        base_name = re.sub(r"^u\d+_", "", n)
+        base_name = re.sub(r"(aggc\d+|agg|summary|grouped|delta|snap|filtered)$", "", base_name)
+        upstream_hints = sorted(
+            t
+            for t in existing
+            if t.lower() != n and (base_name and base_name in t.lower())
+        )[:6]
+
+        schema = schema_by_name.get(name, {})
+        columns = [c["name"] for c in schema.get("columns", [])]
+        out.append(
+            {
+                "table": name,
+                "category": category,
+                "owner": table.get("owner"),
+                "storage_mode": table.get("storage_mode"),
+                "is_realtime": table.get("is_realtime"),
+                "column_count": len(columns),
+                "upstream_hints": upstream_hints,
+            }
+        )
+
+    out.sort(key=lambda x: (x["category"], x["table"].lower()))
+    return out
+
+
+def infer_business_metrics(schemas: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    numeric_types = {"integer", "long", "float", "double", "short", "byte", "decimal"}
+    out: list[dict[str, Any]] = []
+
+    for schema in schemas:
+        table = schema["table"]
+        columns = schema.get("columns", [])
+        cols_lower = {str(c["name"]).lower(): c for c in columns}
+        numeric_cols = [
+            c["name"]
+            for c in columns
+            if str(c.get("type", "")).lower() in numeric_types
+        ]
+
+        suggestions: list[dict[str, str]] = []
+
+        if "buyqty" in cols_lower and "sellqty" in cols_lower:
+            suggestions.append(
+                {
+                    "metric": "turnover_qty",
+                    "formula_hint": "BuyQty + SellQty",
+                }
+            )
+        if "buyvalue" in cols_lower and "sellvalue" in cols_lower:
+            suggestions.append(
+                {
+                    "metric": "turnover_value",
+                    "formula_hint": "BuyValue + SellValue",
+                }
+            )
+        if "buyvalue" in cols_lower and "sellvalue" in cols_lower and "bexpense" in cols_lower and "sexpense" in cols_lower:
+            suggestions.append(
+                {
+                    "metric": "net_trade_pnl",
+                    "formula_hint": "SellValue - BuyValue - BExpense - SExpense",
+                }
+            )
+        if any("pnl" in str(c["name"]).lower() for c in columns):
+            pnl_cols = [c["name"] for c in columns if "pnl" in str(c["name"]).lower()]
+            suggestions.append(
+                {
+                    "metric": "pnl_reported",
+                    "formula_hint": f"Use existing pnl columns: {', '.join(pnl_cols)}",
+                }
+            )
+        if "netbook" in cols_lower and "symbol" in cols_lower:
+            suggestions.append(
+                {
+                    "metric": "net_position_by_symbol",
+                    "formula_hint": "Aggregate by Symbol, NetBook",
+                }
+            )
+
+        if suggestions:
+            out.append(
+                {
+                    "table": table,
+                    "numeric_columns": numeric_cols,
+                    "suggested_metrics": suggestions,
+                }
+            )
+
+    out.sort(key=lambda x: x["table"].lower())
+    return out
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -491,6 +730,102 @@ def write_dashboard(path: Path, payload: dict[str, Any]) -> None:
         )
 
 
+def write_schema_markdown(path: Path, payload: dict[str, Any]) -> None:
+    schemas = payload["schemas"]
+    lines = [
+        "# Schema Catalog",
+        "",
+        f"Generated at (UTC): {payload['generated_at_utc']}",
+        "",
+        f"Total tables with schema: {len(schemas)}",
+        "",
+    ]
+
+    for schema in schemas:
+        lines.append(f"## {schema['table']}")
+        lines.append("")
+        lines.append(f"- Columns: {schema['column_count']}")
+        if schema.get("errors"):
+            for err in schema["errors"]:
+                lines.append(f"- Error: {err}")
+        lines.append("")
+        if schema.get("columns"):
+            lines.append("| Column | Type | Nullable | Index Mode |")
+            lines.append("|---|---|---|---|")
+            for col in schema["columns"]:
+                lines.append(
+                    f"| {col['name']} | {col['type']} | {col['nullable']} | {col['index_mode']} |"
+                )
+            lines.append("")
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_relationships_markdown(path: Path, payload: dict[str, Any]) -> None:
+    rels = payload["relationships"]
+    lines = [
+        "# Relationship Candidates",
+        "",
+        f"Generated at (UTC): {payload['generated_at_utc']}",
+        "",
+        f"Candidates found: {len(rels)}",
+        "",
+        "| Left Table | Right Table | Shared Keys | Strength |",
+        "|---|---|---|---|",
+    ]
+    for rel in rels:
+        keys = ", ".join(rel["shared_keys"])
+        lines.append(
+            f"| {rel['left_table']} | {rel['right_table']} | {keys} | {rel['strength']} |"
+        )
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_dataflow_markdown(path: Path, payload: dict[str, Any]) -> None:
+    flow = payload["data_flow"]
+    lines = [
+        "# Data Flow Classification",
+        "",
+        f"Generated at (UTC): {payload['generated_at_utc']}",
+        "",
+        "| Table | Category | Owner | Storage Mode | Realtime | Upstream Hints |",
+        "|---|---|---|---|---|---|",
+    ]
+    for row in flow:
+        hints = ", ".join(row["upstream_hints"])
+        lines.append(
+            f"| {row['table']} | {row['category']} | {row['owner']} | {row['storage_mode']} | {row['is_realtime']} | {hints} |"
+        )
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_metrics_markdown(path: Path, payload: dict[str, Any]) -> None:
+    metrics = payload["business_metrics"]
+    lines = [
+        "# Business Metric Candidates",
+        "",
+        f"Generated at (UTC): {payload['generated_at_utc']}",
+        "",
+    ]
+    for entry in metrics:
+        lines.append(f"## {entry['table']}")
+        lines.append("")
+        lines.append(f"- Numeric columns: {', '.join(entry['numeric_columns'])}")
+        for metric in entry["suggested_metrics"]:
+            lines.append(
+                f"- {metric['metric']}: {metric['formula_hint']}"
+            )
+        lines.append("")
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def main() -> int:
     args = parse_args()
     if not args.password:
@@ -500,14 +835,29 @@ def main() -> int:
         )
         return 2
 
-    rows = fetch_show_tables(
-        driver_class=args.driver_class,
-        url=args.url,
-        user=args.user,
-        password=args.password,
-        jar_path=args.jar_path,
-        java_home=args.java_home,
-    )
+    connection = None
+    cursor = None
+    rows: list[tuple[Any, ...]] = []
+    schemas: list[dict[str, Any]] = []
+    try:
+        connection = connect_db(
+            driver_class=args.driver_class,
+            url=args.url,
+            user=args.user,
+            password=args.password,
+            jar_path=args.jar_path,
+            java_home=args.java_home,
+        )
+        cursor = connection.cursor()
+        rows = fetch_show_tables(cursor)
+        for row in rows:
+            table_name = str(row[0])
+            schemas.append(fetch_table_schema(cursor, table_name))
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None:
+            connection.close()
 
     def normalize_value(value: Any) -> Any:
         if value is None or isinstance(value, (bool, int, float, str)):
@@ -529,16 +879,64 @@ def main() -> int:
         "rows": normalized_rows,
     }
 
+    table_records = build_table_records(normalized_rows)
+    relationships = infer_relationships(schemas)
+    data_flow = classify_data_flow(table_records, schemas)
+    business_metrics = infer_business_metrics(schemas)
+
+    logic_payload = {
+        "generated_at_utc": payload["generated_at_utc"],
+        "url": args.url,
+        "user": args.user,
+        "driver_class": args.driver_class,
+        "schemas": schemas,
+        "relationships": relationships,
+        "data_flow": data_flow,
+        "business_metrics": business_metrics,
+    }
+
     output_md = Path(args.output_md)
     output_json = Path(args.output_json)
     output_dashboard = Path(args.output_dashboard)
+    output_schema_md = Path(args.output_schema_md)
+    output_schema_json = Path(args.output_schema_json)
+    output_relationships_md = Path(args.output_relationships_md)
+    output_relationships_json = Path(args.output_relationships_json)
+    output_dataflow_md = Path(args.output_dataflow_md)
+    output_dataflow_json = Path(args.output_dataflow_json)
+    output_metrics_md = Path(args.output_metrics_md)
+    output_metrics_json = Path(args.output_metrics_json)
+
     write_markdown(output_md, payload)
     write_json(output_json, payload)
     write_dashboard(output_dashboard, payload)
+    write_schema_markdown(output_schema_md, logic_payload)
+    write_relationships_markdown(output_relationships_md, logic_payload)
+    write_dataflow_markdown(output_dataflow_md, logic_payload)
+    write_metrics_markdown(output_metrics_md, logic_payload)
+    write_json(output_schema_json, {"schemas": schemas, "generated_at_utc": payload["generated_at_utc"]})
+    write_json(
+        output_relationships_json,
+        {"relationships": relationships, "generated_at_utc": payload["generated_at_utc"]},
+    )
+    write_json(
+        output_dataflow_json,
+        {"data_flow": data_flow, "generated_at_utc": payload["generated_at_utc"]},
+    )
+    write_json(
+        output_metrics_json,
+        {"business_metrics": business_metrics, "generated_at_utc": payload["generated_at_utc"]},
+    )
 
     print(f"Wrote {len(rows)} tables to {output_md}")
     print(f"Wrote JSON payload to {output_json}")
     print(f"Wrote dashboard to {output_dashboard}")
+    print(f"Wrote schema catalog to {output_schema_md} and {output_schema_json}")
+    print(
+        f"Wrote relationship candidates to {output_relationships_md} and {output_relationships_json}"
+    )
+    print(f"Wrote data flow classification to {output_dataflow_md} and {output_dataflow_json}")
+    print(f"Wrote business metrics to {output_metrics_md} and {output_metrics_json}")
     return 0
 
 

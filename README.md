@@ -21,6 +21,10 @@ Outputs:
 - `docs/tables.md` (human-readable table catalog)
 - `docs/tables.json` (raw machine-readable payload)
 - `docs/tables_dashboard.html` (presentation dashboard for browser)
+- `docs/schema_catalog.md` and `docs/schema_catalog.json` (column-level schema docs)
+- `docs/relationships.md` and `docs/relationships.json` (inferred table relationships)
+- `docs/data_flow.md` and `docs/data_flow.json` (data-flow category mapping)
+- `docs/business_metrics.md` and `docs/business_metrics.json` (metric candidates + formula hints)
 
 ## Local CORS Server (for browser view)
 
@@ -54,6 +58,23 @@ Open:
 Options:
 - `PORT=8090 ./scripts/start_dashboard.sh` to change port.
 - `SKIP_REFRESH=1 ./scripts/start_dashboard.sh` to serve existing docs without querying DB.
+
+## Git Sync With All Remotes
+
+This repository is configured to use:
+- `origin` -> `https://pwgit.centralindia.cloudapp.azure.com/3forge/3forge-architecture-diagram.git`
+- `github` -> `https://github.com/mishrakm/3forge-architecture-diagram.git`
+
+Single-command full sync (fetch all + pull upstream + push both remotes):
+
+```bash
+cd /home/3forge/3forge-architecture-diagram
+./scripts/sync_all_remotes.sh
+```
+
+Notes:
+- Current branch `main` tracks `origin/release`.
+- Local push behavior is set to `push.default=upstream` to keep sync compatible with this mapping.
 
 Optional flags:
 
