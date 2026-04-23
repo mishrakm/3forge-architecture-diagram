@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import http.server
+import socket
 import socketserver
 from pathlib import Path
 
@@ -60,6 +61,15 @@ def main() -> int:
 
     with socketserver.TCPServer((args.host, args.port), handler) as httpd:
         print(f"Serving {serve_dir} at http://{args.host}:{args.port}")
+        if args.host == "0.0.0.0":
+            print(f"Local URL:  http://127.0.0.1:{args.port}/index.html")
+            try:
+                host_ips = sorted(set(socket.gethostbyname_ex(socket.gethostname())[2]))
+                for ip in host_ips:
+                    if ip and not ip.startswith("127."):
+                        print(f"LAN URL:    http://{ip}:{args.port}/index.html")
+            except Exception:
+                pass
         print("CORS: Access-Control-Allow-Origin = *")
         try:
             httpd.serve_forever()

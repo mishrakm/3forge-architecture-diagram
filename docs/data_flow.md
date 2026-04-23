@@ -1,6 +1,6 @@
 # Data Flow Classification
 
-Generated at (UTC): 2026-04-23T05:51:04.482251+00:00
+Generated at (UTC): 2026-04-23T06:57:08.306895+00:00
 
 | Table | Category | Owner | Storage Mode | Realtime | Upstream Hints |
 |---|---|---|---|---|---|
@@ -59,3 +59,22 @@ Generated at (UTC): 2026-04-23T05:51:04.482251+00:00
 | __TABLE | system | SYSTEM | None | True |  |
 | __TIMER | system | SYSTEM | None | True |  |
 | __TRIGGER | system | SYSTEM | None | True |  |
+
+## Trigger Flow (Input -> Output)
+
+| Trigger | Type | Inputs | Output | Enabled | Priority |
+|---|---|---|---|---|---|
+| CleanOrders | JOIN | order_msgs_noxml, ResultSet | order_msgs_noxml_clean | True | 0 |
+| trgBuySells | JOIN | TradeBook_TID, MasterExpenseParams | BuySells | True | 0 |
+| trgBuySellsAgg | AGGREGATE | BuySells | BuySellsAgg | True | 1 |
+| trgBuySellsAggC1 | PROJECTION | conrevNetBookDelta, BuySellsAgg | BuySellsAggC1 | True | 0 |
+| trgBuySellsAggC2 | AGGREGATE | BuySellsAggC1 | BuySellsAggC2 | True | 1 |
+| trgGroupedPnl | AGGREGATE | NetBookC | GroupedPnl | True | 0 |
+| trgMergeTraderId | JOIN | TradeBook, MasterTraderIds | TradeBook_TID | True | 0 |
+| trgNetBook | JOIN | BuySellsAgg, nse_tbt_snap | NetBook | True | 2 |
+| trgNetBookConRev | JOIN | BuySellsAggC2, nse_tbt_snap | NetBookC | True | 2 |
+| trgNetBookGrouped | AGGREGATE | NetBookC | NetBookGrouped | True | 0 |
+| trgNetBookGroupedFiltered | PROJECTION | NetBookGrouped | NetBookGroupedFiltered | True | 0 |
+| trgNetPnL | AGGREGATE | NetBookGroupedFiltered | NetPnl | True | 0 |
+| trgTradeBook | JOIN | order_msgs_noxml_clean, ServerUsers | TradeBook | True | 0 |
+| trgTradeSum | AGGREGATE | TradeBook | TradeSummary | True | 0 |

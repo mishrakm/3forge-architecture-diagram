@@ -20,11 +20,15 @@ export AMI_DB_PASSWORD='your-password'
 Outputs:
 - `docs/tables.md` (human-readable table catalog)
 - `docs/tables.json` (raw machine-readable payload)
-- `docs/tables_dashboard.html` (presentation dashboard for browser)
+- `docs/tables_dashboard.html` (unified browser dashboard: tables, schema, relationships, data flow, metrics, external mappings, trigger flow)
 - `docs/schema_catalog.md` and `docs/schema_catalog.json` (column-level schema docs)
 - `docs/relationships.md` and `docs/relationships.json` (inferred table relationships)
 - `docs/data_flow.md` and `docs/data_flow.json` (data-flow category mapping)
 - `docs/business_metrics.md` and `docs/business_metrics.json` (metric candidates + formula hints)
+- `docs/external_mappings.md` and `docs/external_mappings.json` (centers + replications external mappings)
+- `docs/triggers.md` and `docs/triggers.json` (trigger definitions and input->output flow)
+- `docs/procedures.md` and `docs/procedures.json` (procedure inventory + definitions)
+- `docs/timers.md` and `docs/timers.json` (timer inventory, schedules, and definitions)
 
 ## Local CORS Server (for browser view)
 

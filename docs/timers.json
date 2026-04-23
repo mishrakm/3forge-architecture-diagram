@@ -1,0 +1,31 @@
+{
+  "timer_details": [
+    {
+      "name": "B2D_NSE_1600",
+      "timer_type": "AMISCRIPT",
+      "priority": "0",
+      "schedule": "0 0 16 * * * IST",
+      "options_preview": "limit=\"9999999999999\" logging=\"v",
+      "owner": "USER",
+      "last_run_time": null,
+      "next_run_time": "2026-04-23 16:00:00",
+      "enabled": true,
+      "ddl": "CREATE TIMER B2D_NSE_1600 OFTYPE AMISCRIPT ON \"0 0 16 * * * IST\" PRIORITY 0 USE limit=\"9999999999999\" logging=\"verbose\" script=\"insert into TRADEBOOK select formatDate(timestamp(),\\\"yyyyMMdd\\\",\\\"IST\\\") as Date,* from TradeBook where Exch==\\\"NSE\\\"\" timeout=\"10800000\";\n",
+      "ddl_error": null
+    },
+    {
+      "name": "NetBookSnap",
+      "timer_type": "AMISCRIPT",
+      "priority": "0",
+      "schedule": "*/20 * 9-15 * * MON-SUN IST",
+      "options_preview": "logging=\"verbose\" script=\"CALL n",
+      "owner": "USER",
+      "last_run_time": "2026-04-23 12:27:00",
+      "next_run_time": "2026-04-23 12:27:20",
+      "enabled": true,
+      "ddl": "CREATE TIMER NetBookSnap OFTYPE AMISCRIPT ON \"*/20 * 9-15 * * MON-SUN IST\" PRIORITY 0 USE logging=\"verbose\" script=\"CALL netBookSnap();\";\n",
+      "ddl_error": null
+    }
+  ],
+  "generated_at_utc": "2026-04-23T06:57:08.306895+00:00"
+}

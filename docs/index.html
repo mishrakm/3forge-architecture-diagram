@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DB Docs Portal</title>
+  <style>
+    :root {
+      --bg: #f4f1eb;
+      --card: #ffffff;
+      --ink: #2a2722;
+      --muted: #6d665e;
+      --line: #e7dfd4;
+      --accent: #0e6f8a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: var(--ink);
+      background: radial-gradient(1000px 500px at 0% 0%, #d9edf780, transparent), var(--bg);
+    }
+    .wrap { max-width: 1000px; margin: 0 auto; padding: 20px; }
+    .hero {
+      background: linear-gradient(130deg, #0e6f8a, #114a6f);
+      color: #fff;
+      border-radius: 14px;
+      padding: 18px;
+    }
+    h1 { margin: 0 0 6px; }
+    p { margin: 4px 0; }
+    .grid {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .card h3 { margin: 0 0 8px; }
+    a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    a:hover { text-decoration: underline; }
+    .muted { color: var(--muted); font-size: 13px; }
+    ul { margin: 8px 0 0; padding-left: 18px; }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>Database Documentation Portal</h1>
+      <p>Start here to browse generated DB behavior docs.</p>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h3>Unified Explorer</h3>
+        <p class="muted">Interactive tabbed dashboard for tables, schema, relationships, data flow, metrics, external mappings, and trigger flow.</p>
+        <ul>
+          <li><a href="tables_dashboard.html">Open Behavior Explorer</a></li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h3>Table Inventory</h3>
+        <ul>
+          <li><a href="tables.md">tables.md</a></li>
+          <li><a href="tables.json">tables.json</a></li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h3>Schema Catalog</h3>
+        <ul>
+          <li><a href="schema_catalog.md">schema_catalog.md</a></li>
+          <li><a href="schema_catalog.json">schema_catalog.json</a></li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h3>Relationships</h3>
+        <ul>
+          <li><a href="relationships.md">relationships.md</a></li>
+          <li><a href="relationships.json">relationships.json</a></li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h3>Data Flow</h3>
+        <ul>
+          <li><a href="data_flow.md">data_flow.md</a></li>
+          <li><a href="data_flow.json">data_flow.json</a></li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h3>Business Metrics</h3>
+        <ul>
+          <li><a href="business_metrics.md">business_metrics.md</a></li>
+          <li><a href="business_metrics.json">business_metrics.json</a></li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h3>External Mappings</h3>
+        <ul>
+          <li><a href="external_mappings.md">external_mappings.md</a></li>
+          <li><a href="external_mappings.json">external_mappings.json</a></li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h3>Trigger Flow</h3>
+        <ul>
+          <li><a href="triggers.md">triggers.md</a></li>
+          <li><a href="triggers.json">triggers.json</a></li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h3>Procedures</h3>
+        <ul>
+          <li><a href="procedures.md">procedures.md</a></li>
+          <li><a href="procedures.json">procedures.json</a></li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h3>Timers</h3>
+        <ul>
+          <li><a href="timers.md">timers.md</a></li>
+          <li><a href="timers.json">timers.json</a></li>
+        </ul>
+      </article>
+    </section>
+  </div>
+</body>
+</html>

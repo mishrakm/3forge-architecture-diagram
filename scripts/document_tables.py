@@ -34,6 +34,14 @@ DEFAULTS = {
     "output_dataflow_json": "./docs/data_flow.json",
     "output_metrics_md": "./docs/business_metrics.md",
     "output_metrics_json": "./docs/business_metrics.json",
+    "output_external_md": "./docs/external_mappings.md",
+    "output_external_json": "./docs/external_mappings.json",
+    "output_triggers_md": "./docs/triggers.md",
+    "output_triggers_json": "./docs/triggers.json",
+    "output_procedures_md": "./docs/procedures.md",
+    "output_procedures_json": "./docs/procedures.json",
+    "output_timers_md": "./docs/timers.md",
+    "output_timers_json": "./docs/timers.json",
 }
 
 
@@ -63,6 +71,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--output-metrics-md", default=DEFAULTS["output_metrics_md"])
     parser.add_argument("--output-metrics-json", default=DEFAULTS["output_metrics_json"])
+    parser.add_argument("--output-external-md", default=DEFAULTS["output_external_md"])
+    parser.add_argument("--output-external-json", default=DEFAULTS["output_external_json"])
+    parser.add_argument("--output-triggers-md", default=DEFAULTS["output_triggers_md"])
+    parser.add_argument("--output-triggers-json", default=DEFAULTS["output_triggers_json"])
+    parser.add_argument("--output-procedures-md", default=DEFAULTS["output_procedures_md"])
+    parser.add_argument("--output-procedures-json", default=DEFAULTS["output_procedures_json"])
+    parser.add_argument("--output-timers-md", default=DEFAULTS["output_timers_md"])
+    parser.add_argument("--output-timers-json", default=DEFAULTS["output_timers_json"])
     parser.add_argument(
         "--java-home",
         default=os.getenv(
@@ -152,6 +168,172 @@ def fetch_table_schema(cursor: Any, table_name: str) -> dict[str, Any]:
         out["errors"].append(f"describe table failed: {exc}")
 
     return out
+
+
+def fetch_show_centers(cursor: Any) -> list[tuple[Any, ...]]:
+    cursor.execute("show centers")
+    return cursor.fetchall()
+
+
+def fetch_show_replications(cursor: Any) -> list[tuple[Any, ...]]:
+    cursor.execute("show replications")
+    return cursor.fetchall()
+
+
+def fetch_show_triggers(cursor: Any) -> list[tuple[Any, ...]]:
+    cursor.execute("show triggers")
+    return cursor.fetchall()
+
+
+def fetch_show_procedures(cursor: Any) -> list[tuple[Any, ...]]:
+    cursor.execute("show procedures")
+    return cursor.fetchall()
+
+
+def fetch_show_timers(cursor: Any) -> list[tuple[Any, ...]]:
+    cursor.execute("show timers")
+    return cursor.fetchall()
+
+
+def fetch_trigger_details(cursor: Any, trigger_rows: list[tuple[Any, ...]]) -> list[dict[str, Any]]:
+    details: list[dict[str, Any]] = []
+    for row in trigger_rows:
+        name = str(row[0])
+        table_chain = str(row[1]) if row[1] is not None else ""
+        object_type = str(row[2]) if row[2] is not None else None
+        priority = str(row[3]) if row[3] is not None else None
+        options_preview = str(row[4]) if row[4] is not None else None
+        owner = str(row[5]) if row[5] is not None else None
+        enabled = bool(row[6]) if row[6] is not None else None
+
+        ddl = None
+        ddl_error = None
+        try:
+            cursor.execute(f"describe trigger {name}")
+            ddl_rows = cursor.fetchall()
+            if ddl_rows:
+                ddl = str(ddl_rows[0][0])
+        except Exception as exc:  # noqa: BLE001
+            ddl_error = str(exc)
+
+        tables = [t.strip() for t in table_chain.split(",") if t and t.strip()]
+        input_tables = tables[:-1] if len(tables) > 1 else tables
+        output_table = tables[-1] if tables else None
+
+        details.append(
+            {
+                "name": name,
+                "type": object_type,
+                "priority": priority,
+                "owner": owner,
+                "enabled": enabled,
+                "table_chain": tables,
+                "input_tables": input_tables,
+                "output_table": output_table,
+                "options_preview": options_preview,
+                "ddl": ddl,
+                "ddl_error": ddl_error,
+            }
+        )
+
+    details.sort(key=lambda x: x["name"].lower())
+    return details
+
+
+def derive_trigger_flows(trigger_details: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    flows: list[dict[str, Any]] = []
+    for trg in trigger_details:
+        flows.append(
+            {
+                "trigger": trg["name"],
+                "type": trg["type"],
+                "input_tables": trg["input_tables"],
+                "output_table": trg["output_table"],
+                "enabled": trg["enabled"],
+                "priority": trg["priority"],
+            }
+        )
+    return flows
+
+
+def fetch_procedure_details(cursor: Any, procedure_rows: list[tuple[Any, ...]]) -> list[dict[str, Any]]:
+    details: list[dict[str, Any]] = []
+    for row in procedure_rows:
+        name = str(row[0])
+        proc_type = str(row[1]) if len(row) > 1 and row[1] is not None else None
+        return_type = str(row[2]) if len(row) > 2 and row[2] is not None else None
+        arguments = str(row[3]) if len(row) > 3 and row[3] is not None else None
+        options_preview = str(row[4]) if len(row) > 4 and row[4] is not None else None
+        owner = str(row[5]) if len(row) > 5 and row[5] is not None else None
+
+        ddl = None
+        ddl_error = None
+        try:
+            cursor.execute(f"describe procedure {name}")
+            ddl_rows = cursor.fetchall()
+            if ddl_rows:
+                ddl = str(ddl_rows[0][0])
+        except Exception as exc:  # noqa: BLE001
+            ddl_error = str(exc)
+
+        details.append(
+            {
+                "name": name,
+                "procedure_type": proc_type,
+                "return_type": return_type,
+                "arguments": arguments,
+                "options_preview": options_preview,
+                "owner": owner,
+                "ddl": ddl,
+                "ddl_error": ddl_error,
+            }
+        )
+
+    details.sort(key=lambda x: x["name"].lower())
+    return details
+
+
+def fetch_timer_details(cursor: Any, timer_rows: list[tuple[Any, ...]]) -> list[dict[str, Any]]:
+    details: list[dict[str, Any]] = []
+    for row in timer_rows:
+        name = str(row[0])
+        timer_type = str(row[1]) if len(row) > 1 and row[1] is not None else None
+        priority = str(row[2]) if len(row) > 2 and row[2] is not None else None
+        schedule = str(row[3]) if len(row) > 3 and row[3] is not None else None
+        options_preview = str(row[4]) if len(row) > 4 and row[4] is not None else None
+        owner = str(row[5]) if len(row) > 5 and row[5] is not None else None
+        last_run_time = str(row[6]) if len(row) > 6 and row[6] is not None else None
+        next_run_time = str(row[7]) if len(row) > 7 and row[7] is not None else None
+        enabled = bool(row[8]) if len(row) > 8 and row[8] is not None else None
+
+        ddl = None
+        ddl_error = None
+        try:
+            cursor.execute(f"describe timer {name}")
+            ddl_rows = cursor.fetchall()
+            if ddl_rows:
+                ddl = str(ddl_rows[0][0])
+        except Exception as exc:  # noqa: BLE001
+            ddl_error = str(exc)
+
+        details.append(
+            {
+                "name": name,
+                "timer_type": timer_type,
+                "priority": priority,
+                "schedule": schedule,
+                "options_preview": options_preview,
+                "owner": owner,
+                "last_run_time": last_run_time,
+                "next_run_time": next_run_time,
+                "enabled": enabled,
+                "ddl": ddl,
+                "ddl_error": ddl_error,
+            }
+        )
+
+    details.sort(key=lambda x: x["name"].lower())
+    return details
 
 
 def build_table_records(rows: list[list[Any]]) -> list[dict[str, Any]]:
@@ -378,7 +560,12 @@ def write_markdown(path: Path, payload: dict[str, Any]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def write_dashboard(path: Path, payload: dict[str, Any]) -> None:
+def write_dashboard(
+        path: Path,
+        payload: dict[str, Any],
+        logic_payload: dict[str, Any],
+) -> None:
+        table_rows = payload["rows"]
         dashboard_data = {
                 "generated_at_utc": payload["generated_at_utc"],
                 "url": payload["url"],
@@ -396,206 +583,220 @@ def write_dashboard(path: Path, payload: dict[str, Any]) -> None:
                                 "row_estimate": row[7],
                                 "column_count": row[8],
                         }
-                        for row in payload["rows"]
+                        for row in table_rows
                 ],
+                "schemas": logic_payload["schemas"],
+                "relationships": logic_payload["relationships"],
+                "data_flow": logic_payload["data_flow"],
+                "business_metrics": logic_payload["business_metrics"],
+                "external_mappings": logic_payload["external_mappings"],
+                "trigger_flows": logic_payload["trigger_flows"],
         }
         dashboard_json = json.dumps(dashboard_data, ensure_ascii=True)
 
         html = """<!doctype html>
-<html lang=\"en\">
+        <html lang=\"en\">
 <head>
     <meta charset=\"utf-8\">
     <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-    <title>DB Tables Dashboard</title>
+    <title>DB Behavior Explorer</title>
     <style>
         :root {
-            --bg: #f7efe4;
-            --card: #fffdf8;
-            --ink: #2c221a;
-            --muted: #6f6052;
-            --accent: #0d7f6f;
-            --accent-2: #ea6a47;
-            --line: #eadcca;
-            --shadow: 0 8px 20px rgba(45, 31, 20, 0.08);
+            --bg: #f2efe9;
+            --card: #ffffff;
+            --ink: #2a2723;
+            --muted: #67615b;
+            --line: #e6ddd1;
+            --primary: #0d6f8b;
+            --accent: #b8582d;
+            --shadow: 0 10px 24px rgba(20, 18, 15, 0.08);
         }
 
         * { box-sizing: border-box; }
-
         body {
             margin: 0;
-            font-family: "Segoe UI", Tahoma, sans-serif;
             color: var(--ink);
+            font-family: "Segoe UI", Tahoma, sans-serif;
             background:
-                radial-gradient(1200px 600px at -10% -10%, #f9c88a55, transparent),
-                radial-gradient(1000px 500px at 120% 0%, #8fd6cb55, transparent),
+                radial-gradient(1200px 500px at 0% 0%, #d7eef580, transparent),
+                radial-gradient(900px 500px at 100% 0%, #f5d9cc70, transparent),
                 var(--bg);
         }
 
-        .wrap {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 24px;
-        }
-
+        .wrap { max-width: 1280px; margin: 0 auto; padding: 20px; }
         .hero {
-            background: linear-gradient(135deg, #1a9c87, #0b6f61);
-            color: #fff;
             border-radius: 16px;
+            background: linear-gradient(135deg, #0d6f8b, #0a596f);
+            color: #fff;
             padding: 20px;
             box-shadow: var(--shadow);
         }
+        .hero h1 { margin: 0 0 8px; font-size: 30px; }
+        .hero p { margin: 4px 0; opacity: 0.94; }
 
-        .hero h1 {
-            margin: 0 0 8px;
-            font-size: 28px;
-            letter-spacing: 0.2px;
-        }
-
-        .hero p {
-            margin: 4px 0;
-            opacity: 0.92;
-        }
-
-        .kpis {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 12px;
-            margin-top: 16px;
-        }
-
+        .kpis { margin-top: 14px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
         .card {
             background: var(--card);
             border: 1px solid var(--line);
             border-radius: 14px;
-            padding: 14px;
+            padding: 12px;
             box-shadow: var(--shadow);
         }
+        .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.7px; }
+        .value { margin-top: 6px; font-size: 24px; font-weight: 700; }
 
-        .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; }
-        .value { font-size: 28px; font-weight: 700; margin-top: 6px; }
-
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 14px;
-        }
-
-        .chart-title { margin: 0 0 10px; font-size: 16px; }
-
-        .bar-row { display: grid; grid-template-columns: 130px 1fr 40px; gap: 10px; align-items: center; margin: 8px 0; }
-        .bar-wrap { height: 10px; background: #f3e7d8; border-radius: 999px; overflow: hidden; }
-        .bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
-        .bar-name { font-size: 13px; color: var(--muted); }
-        .bar-num { font-size: 13px; font-weight: 600; text-align: right; }
-
-        .tools {
-            display: flex;
-            gap: 10px;
-            margin-top: 12px;
-            flex-wrap: wrap;
-        }
-
-        input, select {
-            height: 38px;
-            border-radius: 10px;
+        .tabs { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .tab-btn {
             border: 1px solid var(--line);
             background: #fff;
             color: var(--ink);
+            padding: 8px 12px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+        .panel { margin-top: 12px; display: none; }
+        .panel.active { display: block; }
+        .panel .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+
+        input, select {
+            height: 36px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
             padding: 0 10px;
+            background: #fff;
             min-width: 180px;
         }
+
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .bar-row { display: grid; grid-template-columns: 130px 1fr 44px; gap: 8px; align-items: center; margin: 8px 0; }
+        .bar-name { color: var(--muted); font-size: 12px; }
+        .bar-wrap { height: 10px; background: #f1ece4; border-radius: 999px; overflow: hidden; }
+        .bar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); }
+        .bar-num { text-align: right; font-size: 12px; font-weight: 700; }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 12px;
-            background: var(--card);
             border: 1px solid var(--line);
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: var(--shadow);
+            background: #fff;
         }
-
-        th, td {
-            border-bottom: 1px solid #f2e7d8;
-            padding: 10px;
-            text-align: left;
-            font-size: 13px;
-            vertical-align: top;
-        }
-
-        th {
-            background: #f8f1e8;
-            position: sticky;
-            top: 0;
-            z-index: 1;
-        }
-
-        tr:hover td { background: #fff8ee; }
-
-        .pill {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 999px;
-            font-size: 12px;
-            background: #edf7f5;
-            color: #0f6659;
-            border: 1px solid #c8e5de;
-        }
-
+        th, td { border-bottom: 1px solid #f3ede4; padding: 9px; font-size: 12px; text-align: left; vertical-align: top; }
+        th { background: #f9f6f1; position: sticky; top: 0; z-index: 1; }
+        .table-wrap { max-height: 66vh; overflow: auto; border-radius: 12px; }
         .muted { color: var(--muted); font-size: 12px; }
+        .pill { display:inline-block; border:1px solid #cde2ea; background:#edf7fb; color:#145367; border-radius:999px; padding:2px 8px; font-size:11px; }
+        .lineage-wrap { border: 1px solid var(--line); border-radius: 12px; background: #fbfaf7; overflow: auto; }
+        .lineage-svg { min-width: 760px; width: 100%; display: block; }
+        .lineage-node-table { fill: #f6ede2; stroke: #d9b585; stroke-width: 1; }
+        .lineage-node-trigger { fill: #dff1f7; stroke: #7fb1c4; stroke-width: 1; }
+        .lineage-edge { stroke: #8f8a84; stroke-width: 1.2; fill: none; marker-end: url(#arrow); opacity: 0.9; }
+        .lineage-label { font-size: 11px; fill: #2a2723; dominant-baseline: middle; }
+        .lineage-label-tspan { dominant-baseline: central; }
+        .lineage-legend { margin-top: 8px; font-size: 12px; color: var(--muted); }
 
-        @media (max-width: 980px) {
+        @media (max-width: 1000px) {
             .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .grid { grid-template-columns: 1fr; }
-            th, td { font-size: 12px; }
         }
     </style>
 </head>
 <body>
     <div class=\"wrap\">
         <section class=\"hero\">
-            <h1>Database Tables Dashboard</h1>
+            <h1>DB Behavior Explorer</h1>
             <p id=\"source\"></p>
             <p id=\"generated\"></p>
         </section>
 
         <section class=\"kpis\" id=\"kpis\"></section>
 
-        <section class=\"grid\">
-            <div class=\"card\">
-                <h3 class=\"chart-title\">Tables by Owner</h3>
-                <div id=\"ownerBars\"></div>
+        <section class=\"tabs\">
+            <button class=\"tab-btn active\" data-tab=\"triggers\">Trigger Flow</button>
+            <button class=\"tab-btn\" data-tab=\"tables\">Tables</button>
+            <button class=\"tab-btn\" data-tab=\"schema\">Schema</button>
+            <button class=\"tab-btn\" data-tab=\"relationships\">Relationships</button>
+            <button class=\"tab-btn\" data-tab=\"dataflow\">Data Flow</button>
+            <button class=\"tab-btn\" data-tab=\"metrics\">Metrics</button>
+            <button class="tab-btn" data-tab="external">External Mappings</button>
+        </section>
+
+        <section class=\"panel\" id=\"panel-tables\">
+            <div class=\"grid\">
+                <div class=\"card\"><h3>Tables by Owner</h3><div id=\"ownerBars\"></div></div>
+                <div class=\"card\"><h3>Largest by Row Estimate</h3><div id=\"largestBars\"></div></div>
             </div>
-            <div class=\"card\">
-                <h3 class=\"chart-title\">Largest Tables by Row Estimate</h3>
-                <div id=\"largestBars\"></div>
+            <div class=\"card\" style=\"margin-top:10px;\">
+                <div class=\"toolbar\">
+                    <input id=\"tableSearch\" placeholder=\"Search table\">
+                    <select id=\"ownerFilter\"></select>
+                    <select id=\"policyFilter\"></select>
+                </div>
+                <p class=\"muted\" id=\"tableCount\"></p>
+                <div class=\"table-wrap\"><table><thead><tr><th>Table</th><th>Owner</th><th>Policy</th><th>Scope</th><th>Rows</th><th>Cols</th><th>Realtime</th></tr></thead><tbody id=\"tableRows\"></tbody></table></div>
             </div>
         </section>
 
-        <section class=\"card\" style=\"margin-top:12px;\">
-            <div class=\"tools\">
-                <input id=\"search\" placeholder=\"Search by table name\" />
-                <select id=\"ownerFilter\"></select>
-                <select id=\"policyFilter\"></select>
+        <section class="panel" id="panel-schema">
+            <div class=\"card\">
+                <div class=\"toolbar\"><input id=\"schemaSearch\" placeholder=\"Search table/column\"></div>
+                <p class=\"muted\" id=\"schemaCount\"></p>
+                <div class=\"table-wrap\"><table><thead><tr><th>Table</th><th>Column</th><th>Type</th><th>Nullable</th><th>Index</th></tr></thead><tbody id=\"schemaRows\"></tbody></table></div>
             </div>
-            <p class=\"muted\" id=\"countText\"></p>
-            <div style=\"overflow:auto; max-height: 70vh;\">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Table</th>
-                            <th>Owner</th>
-                            <th>Policy</th>
-                            <th>Scope</th>
-                            <th>Rows</th>
-                            <th>Columns</th>
-                            <th>Realtime</th>
-                        </tr>
-                    </thead>
-                    <tbody id=\"rows\"></tbody>
-                </table>
+        </section>
+        <section class="panel" id="panel-external">
+            <div class="card">
+                <h3>Centers</h3>
+                <p class="muted" id="centerCount"></p>
+                <div class="table-wrap"><table><thead><tr><th>Name</th><th>Address</th><th>Status</th><th>Peers</th><th>Rows</th></tr></thead><tbody id="centerRows"></tbody></table></div>
+            </div>
+            <div class="card" style="margin-top:10px;">
+                <h3>Replications</h3>
+                <p class="muted" id="replCount"></p>
+                <div class="table-wrap"><table><thead><tr><th>Name</th><th>Target</th><th>Source Center</th><th>Source Table</th><th>Rows</th><th>Status</th></tr></thead><tbody id="replRows"></tbody></table></div>
+            </div>
+        </section>
+        <section class="panel active" id="panel-triggers">
+            <div class="card">
+                <h3>Trigger Input -> Output Flow</h3>
+                <p class="muted" id="triggerCount"></p>
+                <div class="table-wrap"><table><thead><tr><th>Trigger</th><th>Type</th><th>Inputs</th><th>Output</th><th>Enabled</th><th>Priority</th></tr></thead><tbody id="triggerRows"></tbody></table></div>
+            </div>
+            <div class="card" style="margin-top:10px;">
+                <h3>Compact Lineage Graph</h3>
+                <p class="muted" id="lineageSummary"></p>
+                <div class="lineage-wrap">
+                    <svg id="lineageGraph" class="lineage-svg" viewBox="0 0 760 320" preserveAspectRatio="xMidYMin meet"></svg>
+                </div>
+                <div class="lineage-legend">Left: source tables | Middle: triggers | Right: target tables</div>
+            </div>
+        </section>
+
+        <section class=\"panel\" id=\"panel-relationships\">
+            <div class=\"card\">
+                <div class=\"toolbar\"><input id=\"relSearch\" placeholder=\"Search table/key\"></div>
+                <p class=\"muted\" id=\"relCount\"></p>
+                <div class=\"table-wrap\"><table><thead><tr><th>Left</th><th>Right</th><th>Shared Keys</th><th>Strength</th></tr></thead><tbody id=\"relRows\"></tbody></table></div>
+            </div>
+        </section>
+
+        <section class=\"panel\" id=\"panel-dataflow\">
+            <div class=\"card\">
+                <div class=\"toolbar\"><input id=\"flowSearch\" placeholder=\"Search table/category\"><select id=\"flowCategory\"></select></div>
+                <p class=\"muted\" id=\"flowCount\"></p>
+                <div class=\"table-wrap\"><table><thead><tr><th>Table</th><th>Category</th><th>Owner</th><th>Storage</th><th>Realtime</th><th>Upstream Hints</th></tr></thead><tbody id=\"flowRows\"></tbody></table></div>
+            </div>
+        </section>
+
+        <section class=\"panel\" id=\"panel-metrics\">
+            <div class=\"card\">
+                <div class=\"toolbar\"><input id=\"metricSearch\" placeholder=\"Search table/metric\"></div>
+                <p class=\"muted\" id=\"metricCount\"></p>
+                <div class=\"table-wrap\"><table><thead><tr><th>Table</th><th>Metric</th><th>Formula Hint</th></tr></thead><tbody id=\"metricRows\"></tbody></table></div>
             </div>
         </section>
     </div>
@@ -603,6 +804,12 @@ def write_dashboard(path: Path, payload: dict[str, Any]) -> None:
     <script>
         const data = __DASHBOARD_DATA__;
         const tables = data.tables || [];
+        const schemas = data.schemas || [];
+        const relationships = data.relationships || [];
+        const dataFlow = data.data_flow || [];
+        const metrics = data.business_metrics || [];
+        const externalMappings = data.external_mappings || { centers: [], replications: [] };
+        const triggerFlows = data.trigger_flows || [];
 
         const fmt = (v) => {
             if (v === null || v === undefined) return "-";
@@ -615,109 +822,348 @@ def write_dashboard(path: Path, payload: dict[str, Any]) -> None:
         document.getElementById("generated").textContent =
             "Generated (UTC): " + data.generated_at_utc;
 
-        const totalRows = tables.reduce((acc, t) => acc + (Number(t.row_estimate) || 0), 0);
-        const avgCols = tables.length
-            ? (tables.reduce((acc, t) => acc + (Number(t.column_count) || 0), 0) / tables.length).toFixed(1)
-            : "0.0";
-        const realtimeCount = tables.filter((t) => t.is_realtime === true).length;
-        const systemCount = tables.filter((t) => String(t.owner || "").toUpperCase() === "SYSTEM").length;
-
-        const kpiItems = [
-            ["Total Tables", tables.length],
-            ["Estimated Rows", totalRows.toLocaleString()],
-            ["Realtime Tables", realtimeCount],
-            ["System Tables", systemCount],
+        const kpiRows = tables.reduce((acc, t) => acc + (Number(t.row_estimate) || 0), 0);
+        const kpiRealtime = tables.filter((t) => t.is_realtime === true).length;
+        const kpiSchemaRows = schemas.reduce((acc, s) => acc + (s.columns ? s.columns.length : 0), 0);
+        const kpiRel = relationships.length;
+        const kpiMetrics = metrics.reduce((acc, m) => acc + (m.suggested_metrics || []).length, 0);
+        const kpis = [
+            ["Tables", tables.length],
+            ["Estimated Rows", kpiRows.toLocaleString()],
+            ["Schema Fields", kpiSchemaRows],
+            ["Relations", kpiRel],
+            ["Metric Hints", kpiMetrics],
         ];
+        const kpiEl = document.getElementById("kpis");
+        kpiEl.innerHTML = kpis.map(([label, value]) => '<div class="card"><div class="label">' + label + '</div><div class="value">' + value + '</div></div>').join("");
 
-        const kpis = document.getElementById("kpis");
-        for (const [label, value] of kpiItems) {
-            const div = document.createElement("div");
-            div.className = "card";
-            div.innerHTML =
-                '<div class="label">' + label + '</div><div class="value">' + value + '</div>';
-            kpis.appendChild(div);
-        }
+        const tabBtns = [...document.querySelectorAll(".tab-btn")];
+        const panels = [...document.querySelectorAll(".panel")];
+        tabBtns.forEach((btn) => {
+            btn.addEventListener("click", () => {
+                tabBtns.forEach((b) => b.classList.remove("active"));
+                panels.forEach((p) => p.classList.remove("active"));
+                btn.classList.add("active");
+                const id = "panel-" + btn.dataset.tab;
+                const panel = document.getElementById(id);
+                if (panel) panel.classList.add("active");
+            });
+        });
 
         const countBy = (arr, key) => {
-            const out = new Map();
+            const m = new Map();
             for (const item of arr) {
                 const k = String(item[key] ?? "UNKNOWN");
-                out.set(k, (out.get(k) || 0) + 1);
+                m.set(k, (m.get(k) || 0) + 1);
             }
-            return Array.from(out.entries()).sort((a, b) => b[1] - a[1]);
+            return [...m.entries()].sort((a, b) => b[1] - a[1]);
         };
-
-        const renderBars = (elId, rows) => {
-            const max = rows.reduce((m, r) => Math.max(m, r[1]), 1);
-            const parent = document.getElementById(elId);
-            parent.innerHTML = "";
-            for (const [name, val] of rows) {
-                const row = document.createElement("div");
-                row.className = "bar-row";
-                row.innerHTML =
-                    '<div class="bar-name">' + name + '</div>' +
-                    '<div class="bar-wrap"><div class="bar" style="width:' + Math.max(4, (val / max) * 100).toFixed(1) + '%"></div></div>' +
-                    '<div class="bar-num">' + val + '</div>';
-                parent.appendChild(row);
-            }
+        const renderBars = (targetId, items) => {
+            const max = items.reduce((m, i) => Math.max(m, i[1]), 1);
+            const target = document.getElementById(targetId);
+            target.innerHTML = items.map(([name, val]) =>
+                '<div class="bar-row"><div class="bar-name">' + name + '</div><div class="bar-wrap"><div class="bar" style="width:' + Math.max(4, (val/max)*100).toFixed(1) + '%"></div></div><div class="bar-num">' + val + '</div></div>'
+            ).join("");
         };
+        renderBars("ownerBars", countBy(tables, "owner"));
+        renderBars("largestBars", [...tables].sort((a,b)=> (Number(b.row_estimate)||0)-(Number(a.row_estimate)||0)).slice(0,10).map((t)=>[t.name, Number(t.row_estimate)||0]));
 
-        const owners = countBy(tables, "owner");
-        renderBars("ownerBars", owners);
-
-        const biggest = [...tables]
-            .sort((a, b) => (Number(b.row_estimate) || 0) - (Number(a.row_estimate) || 0))
-            .slice(0, 10)
-            .map((t) => [t.name, Number(t.row_estimate) || 0]);
-        renderBars("largestBars", biggest);
-
+        const tableSearch = document.getElementById("tableSearch");
         const ownerFilter = document.getElementById("ownerFilter");
         const policyFilter = document.getElementById("policyFilter");
-        const search = document.getElementById("search");
-        const tbody = document.getElementById("rows");
-        const countText = document.getElementById("countText");
+        ownerFilter.innerHTML = ["ALL", ...new Set(tables.map((t)=>String(t.owner ?? "UNKNOWN")))].sort().map((o)=>'<option value="'+o+'">Owner: '+o+'</option>').join("");
+        policyFilter.innerHTML = ["ALL", ...new Set(tables.map((t)=>String(t.change_policy ?? "UNKNOWN")))].sort().map((p)=>'<option value="'+p+'">Policy: '+p+'</option>').join("");
 
-        const uniqueOwners = ["ALL", ...new Set(tables.map((t) => String(t.owner ?? "UNKNOWN")))].sort();
-        const uniquePolicies = ["ALL", ...new Set(tables.map((t) => String(t.change_policy ?? "UNKNOWN")))].sort();
-
-        ownerFilter.innerHTML = uniqueOwners.map((o) => '<option value="' + o + '">Owner: ' + o + '</option>').join("");
-        policyFilter.innerHTML = uniquePolicies.map((p) => '<option value="' + p + '">Policy: ' + p + '</option>').join("");
-
-        const renderTable = () => {
-            const s = search.value.trim().toLowerCase();
+        const renderTables = () => {
+            const s = tableSearch.value.trim().toLowerCase();
             const owner = ownerFilter.value;
             const policy = policyFilter.value;
-
             const filtered = tables.filter((t) => {
-                const matchSearch = !s || String(t.name || "").toLowerCase().includes(s);
-                const matchOwner = owner === "ALL" || String(t.owner ?? "UNKNOWN") === owner;
-                const matchPolicy = policy === "ALL" || String(t.change_policy ?? "UNKNOWN") === policy;
-                return matchSearch && matchOwner && matchPolicy;
+                const okS = !s || String(t.name).toLowerCase().includes(s);
+                const okO = owner === "ALL" || String(t.owner ?? "UNKNOWN") === owner;
+                const okP = policy === "ALL" || String(t.change_policy ?? "UNKNOWN") === policy;
+                return okS && okO && okP;
+            });
+            document.getElementById("tableCount").textContent = "Showing " + filtered.length + " of " + tables.length + " tables";
+            document.getElementById("tableRows").innerHTML = filtered.map((t) =>
+                "<tr>" +
+                "<td><strong>" + fmt(t.name) + "</strong></td>" +
+                "<td><span class='pill'>" + fmt(t.owner) + "</span></td>" +
+                "<td>" + fmt(t.change_policy) + "</td>" +
+                "<td>" + fmt(t.scope) + "</td>" +
+                "<td>" + fmt(t.row_estimate) + "</td>" +
+                "<td>" + fmt(t.column_count) + "</td>" +
+                "<td>" + (t.is_realtime === null ? "-" : (t.is_realtime ? "Yes" : "No")) + "</td>" +
+                "</tr>"
+            ).join("");
+        };
+        tableSearch.addEventListener("input", renderTables);
+        ownerFilter.addEventListener("change", renderTables);
+        policyFilter.addEventListener("change", renderTables);
+        renderTables();
+
+        const schemaSearch = document.getElementById("schemaSearch");
+        const flattenedSchema = schemas.flatMap((s) => (s.columns || []).map((c) => ({ table: s.table, column: c.name, type: c.type, nullable: c.nullable, index_mode: c.index_mode })));
+        const renderSchema = () => {
+            const s = schemaSearch.value.trim().toLowerCase();
+            const filtered = flattenedSchema.filter((r) => !s || String(r.table).toLowerCase().includes(s) || String(r.column).toLowerCase().includes(s));
+            document.getElementById("schemaCount").textContent = "Showing " + filtered.length + " of " + flattenedSchema.length + " columns";
+            document.getElementById("schemaRows").innerHTML = filtered.map((r) =>
+                "<tr><td><strong>" + fmt(r.table) + "</strong></td><td>" + fmt(r.column) + "</td><td>" + fmt(r.type) + "</td><td>" + fmt(r.nullable) + "</td><td>" + fmt(r.index_mode) + "</td></tr>"
+            ).join("");
+        };
+        schemaSearch.addEventListener("input", renderSchema);
+        renderSchema();
+
+        const relSearch = document.getElementById("relSearch");
+        const renderRelationships = () => {
+            const s = relSearch.value.trim().toLowerCase();
+            const filtered = relationships.filter((r) => {
+                const keys = (r.shared_keys || []).join(",").toLowerCase();
+                return !s || String(r.left_table).toLowerCase().includes(s) || String(r.right_table).toLowerCase().includes(s) || keys.includes(s);
+            });
+            document.getElementById("relCount").textContent = "Showing " + filtered.length + " of " + relationships.length + " candidates";
+            document.getElementById("relRows").innerHTML = filtered.map((r) =>
+                "<tr><td><strong>" + fmt(r.left_table) + "</strong></td><td><strong>" + fmt(r.right_table) + "</strong></td><td>" + fmt((r.shared_keys || []).join(", ")) + "</td><td>" + fmt(r.strength) + "</td></tr>"
+            ).join("");
+        };
+        relSearch.addEventListener("input", renderRelationships);
+        renderRelationships();
+
+        const flowSearch = document.getElementById("flowSearch");
+        const flowCategory = document.getElementById("flowCategory");
+        flowCategory.innerHTML = ["ALL", ...new Set(dataFlow.map((d)=>String(d.category||"unknown")))].sort().map((c)=>'<option value="'+c+'">Category: '+c+'</option>').join("");
+        const renderFlow = () => {
+            const s = flowSearch.value.trim().toLowerCase();
+            const c = flowCategory.value;
+            const filtered = dataFlow.filter((r) => {
+                const okS = !s || String(r.table).toLowerCase().includes(s) || String(r.category).toLowerCase().includes(s);
+                const okC = c === "ALL" || String(r.category) === c;
+                return okS && okC;
+            });
+            document.getElementById("flowCount").textContent = "Showing " + filtered.length + " of " + dataFlow.length + " mappings";
+            document.getElementById("flowRows").innerHTML = filtered.map((r) =>
+                "<tr><td><strong>" + fmt(r.table) + "</strong></td><td>" + fmt(r.category) + "</td><td>" + fmt(r.owner) + "</td><td>" + fmt(r.storage_mode) + "</td><td>" + fmt(r.is_realtime) + "</td><td>" + fmt((r.upstream_hints || []).join(", ")) + "</td></tr>"
+            ).join("");
+        };
+        flowSearch.addEventListener("input", renderFlow);
+        flowCategory.addEventListener("change", renderFlow);
+        renderFlow();
+
+        const metricSearch = document.getElementById("metricSearch");
+        const flattenedMetrics = metrics.flatMap((m) => (m.suggested_metrics || []).map((s) => ({ table: m.table, metric: s.metric, formula: s.formula_hint })));
+        const renderMetrics = () => {
+            const s = metricSearch.value.trim().toLowerCase();
+            const filtered = flattenedMetrics.filter((r) => !s || String(r.table).toLowerCase().includes(s) || String(r.metric).toLowerCase().includes(s) || String(r.formula).toLowerCase().includes(s));
+            document.getElementById("metricCount").textContent = "Showing " + filtered.length + " of " + flattenedMetrics.length + " metric hints";
+            document.getElementById("metricRows").innerHTML = filtered.map((r) =>
+                "<tr><td><strong>" + fmt(r.table) + "</strong></td><td>" + fmt(r.metric) + "</td><td>" + fmt(r.formula) + "</td></tr>"
+            ).join("");
+        };
+        metricSearch.addEventListener("input", renderMetrics);
+        renderMetrics();
+        const centers = externalMappings.centers || [];
+        const replications = externalMappings.replications || [];
+        document.getElementById("centerCount").textContent = "Total centers: " + centers.length;
+        document.getElementById("replCount").textContent = "Total replications: " + replications.length;
+        document.getElementById("centerRows").innerHTML = centers.map((r) =>
+            "<tr>" +
+            "<td><strong>" + fmt(r[0]) + "</strong></td>" +
+            "<td>" + fmt(r[1]) + "</td>" +
+            "<td>" + fmt(r[4]) + "</td>" +
+            "<td>" + fmt(r[5]) + "</td>" +
+            "<td>" + fmt(r[6]) + "</td>" +
+            "</tr>"
+        ).join("");
+        document.getElementById("replRows").innerHTML = replications.map((r) =>
+            "<tr>" +
+            "<td><strong>" + fmt(r[0]) + "</strong></td>" +
+            "<td>" + fmt(r[1]) + "</td>" +
+            "<td>" + fmt(r[2]) + "</td>" +
+            "<td>" + fmt(r[3]) + "</td>" +
+            "<td>" + fmt(r[6]) + "</td>" +
+            "<td>" + fmt(r[7]) + "</td>" +
+            "</tr>"
+        ).join("");
+        document.getElementById("triggerCount").textContent = "Total trigger flows: " + triggerFlows.length;
+        document.getElementById("triggerRows").innerHTML = triggerFlows.map((f) =>
+            "<tr>" +
+            "<td><strong>" + fmt(f.trigger) + "</strong></td>" +
+            "<td>" + fmt(f.type) + "</td>" +
+            "<td>" + fmt((f.input_tables || []).join(", ")) + "</td>" +
+            "<td>" + fmt(f.output_table) + "</td>" +
+            "<td>" + fmt(f.enabled) + "</td>" +
+            "<td>" + fmt(f.priority) + "</td>" +
+            "</tr>"
+        ).join("");
+
+        const renderLineageGraph = (flows) => {
+            const svg = document.getElementById("lineageGraph");
+            const summary = document.getElementById("lineageSummary");
+            if (!svg || !summary) return;
+
+            const activeFlows = (flows || []).filter((f) => f && f.enabled !== false);
+            if (activeFlows.length === 0) {
+                summary.textContent = "No active trigger flow to visualize.";
+                svg.setAttribute("viewBox", "0 0 760 180");
+                svg.innerHTML = "<text x='24' y='80' class='lineage-label'>No trigger flow available</text>";
+                return;
+            }
+
+            const producedTables = new Set(
+                activeFlows
+                    .map((f) => (f && f.output_table ? String(f.output_table) : ""))
+                    .filter((v) => v.length > 0)
+            );
+
+            // Build trigger dependency graph: A -> B if A's output is an input of B.
+            const outputProducer = new Map();
+            activeFlows.forEach((f, i) => {
+                const out = f && f.output_table ? String(f.output_table) : "";
+                if (out && !outputProducer.has(out)) outputProducer.set(out, i);
             });
 
-            countText.textContent = "Showing " + filtered.length + " of " + tables.length + " tables | Avg columns: " + avgCols;
-            tbody.innerHTML = filtered
-                .map((t) => {
-                    const realtime = t.is_realtime === null ? "-" : (t.is_realtime ? "Yes" : "No");
-                    return (
-                        "<tr>" +
-                        "<td><strong>" + fmt(t.name) + "</strong></td>" +
-                        "<td><span class='pill'>" + fmt(t.owner) + "</span></td>" +
-                        "<td>" + fmt(t.change_policy) + "</td>" +
-                        "<td>" + fmt(t.scope) + "</td>" +
-                        "<td>" + fmt(t.row_estimate) + "</td>" +
-                        "<td>" + fmt(t.column_count) + "</td>" +
-                        "<td>" + realtime + "</td>" +
-                        "</tr>"
-                    );
-                })
-                .join("");
+            const normalizeInputs = (f) =>
+                Array.isArray(f.input_tables) ? f.input_tables.map((v) => String(v)) : [];
+
+            const indegree = new Array(activeFlows.length).fill(0);
+            const edges = new Map();
+            for (let i = 0; i < activeFlows.length; i++) edges.set(i, []);
+
+            activeFlows.forEach((f, idx) => {
+                const inputs = normalizeInputs(f);
+                for (const inp of inputs) {
+                    const p = outputProducer.get(inp);
+                    if (p !== undefined && p !== idx) {
+                        edges.get(p).push(idx);
+                        indegree[idx] += 1;
+                    }
+                }
+            });
+
+            const flowSortKey = (idx) => {
+                const f = activeFlows[idx];
+                const inputs = normalizeInputs(f);
+                const externalInputs = inputs.filter((t) => !producedTables.has(t));
+                const firstExternal = externalInputs.length ? externalInputs[0] : "";
+                const pri = Number(f.priority ?? 0);
+                const trig = String(f.trigger || "");
+                return [firstExternal.toLowerCase(), pri, trig.toLowerCase()];
+            };
+
+            const compareIdx = (a, b) => {
+                const ka = flowSortKey(a);
+                const kb = flowSortKey(b);
+                if (ka[0] !== kb[0]) return ka[0].localeCompare(kb[0]);
+                if (ka[1] !== kb[1]) return ka[1] - kb[1];
+                return ka[2].localeCompare(kb[2]);
+            };
+
+            // Kahn topological sort for generic source->target ordering.
+            const ready = [];
+            for (let i = 0; i < activeFlows.length; i++) {
+                if (indegree[i] === 0) ready.push(i);
+            }
+            ready.sort(compareIdx);
+
+            const orderedIndices = [];
+            while (ready.length > 0) {
+                const cur = ready.shift();
+                orderedIndices.push(cur);
+                const nexts = edges.get(cur) || [];
+                for (const n of nexts) {
+                    indegree[n] -= 1;
+                    if (indegree[n] === 0) {
+                        ready.push(n);
+                        ready.sort(compareIdx);
+                    }
+                }
+            }
+
+            // If cycles/malformed deps exist, append remaining deterministically.
+            for (let i = 0; i < activeFlows.length; i++) {
+                if (!orderedIndices.includes(i)) orderedIndices.push(i);
+            }
+
+            const orderedFlows = orderedIndices.map((i) => activeFlows[i]);
+
+            const maxRows = Math.max(orderedFlows.length, 1);
+            const rowGap = 36;
+            const topPad = 36;
+            const height = Math.max(220, topPad * 2 + rowGap * maxRows);
+            svg.setAttribute("viewBox", "0 0 760 " + height);
+
+            const sx = 130;
+            const tx = 380;
+            const dx = 630;
+            const rectW = 170;
+            const rectH = 22;
+
+            const esc = (v) => String(v)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/\"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+
+            const edgeLines = [];
+            const rowNodes = orderedFlows.map((f, i) => {
+                const y = topPad + i * rowGap;
+                const inputs = Array.isArray(f.input_tables) ? f.input_tables.map((v) => String(v)) : [];
+                const sourceLabel = inputs.length > 0 ? inputs.join("\\n") : "(none)";
+                const triggerLabel = String(f.trigger || "unknown_trigger");
+                const outputLabel = String(f.output_table || "(none)");
+
+                edgeLines.push(
+                    "<path class='lineage-edge' d='M " + (sx + rectW / 2) + " " + y + " C " + (sx + 120) + " " + y + ", " + (tx - 120) + " " + y + ", " + (tx - rectW / 2) + " " + y + "'></path>"
+                );
+                edgeLines.push(
+                    "<path class='lineage-edge' d='M " + (tx + rectW / 2) + " " + y + " C " + (tx + 120) + " " + y + ", " + (dx - 120) + " " + y + ", " + (dx - rectW / 2) + " " + y + "'></path>"
+                );
+
+                return {
+                    sourceLabel,
+                    triggerLabel,
+                    outputLabel,
+                    inputs,
+                    y,
+                };
+            });
+
+
+            const drawNode = (x, y, name, klass) => {
+                const text = esc(name);
+                const lines = String(name).split("\\n").map((s) => esc(s));
+                const lineHeight = 11;
+                const startY = y - ((lines.length - 1) * lineHeight) / 2;
+                const tspans = lines.map((ln, i) =>
+                    "<tspan class='lineage-label-tspan' x='" + x + "' y='" + (startY + i * lineHeight) + "'>" + ln + "</tspan>"
+                ).join("");
+                const dynamicHeight = Math.max(rectH, 12 + lines.length * lineHeight);
+                return "<g><rect class='" + klass + "' x='" + (x - rectW / 2) + "' y='" + (y - dynamicHeight / 2) + "' width='" + rectW + "' height='" + dynamicHeight + "' rx='5'></rect><title>" + text + "</title><text class='lineage-label' x='" + x + "' y='" + y + "' text-anchor='middle'>" + tspans + "</text></g>";
+            };
+
+            const labels = [
+                "<text class='lineage-label' x='" + sx + "' y='18' text-anchor='middle'>Source Tables (All Inputs)</text>",
+                "<text class='lineage-label' x='" + tx + "' y='18' text-anchor='middle'>Triggers</text>",
+                "<text class='lineage-label' x='" + dx + "' y='18' text-anchor='middle'>Target Tables</text>",
+            ].join("");
+
+            const sourceNodes = rowNodes.map((n) => {
+                return drawNode(sx, n.y, n.sourceLabel, "lineage-node-table");
+            }).join("");
+            const triggerNodes = rowNodes.map((n) => {
+                return drawNode(tx, n.y, n.triggerLabel, "lineage-node-trigger");
+            }).join("");
+            const targetNodes = rowNodes.map((n) => {
+                return drawNode(dx, n.y, n.outputLabel, "lineage-node-table");
+            }).join("");
+
+            summary.textContent = "Ordered flows: " + rowNodes.length + " (auto dependency order: source -> trigger -> target)";
+            svg.innerHTML = "<defs><marker id='arrow' markerWidth='9' markerHeight='6' refX='8' refY='3' orient='auto'><path d='M0,0 L9,3 L0,6 z' fill='#8f8a84'></path></marker></defs>" + labels + edgeLines.join("") + sourceNodes + triggerNodes + targetNodes;
         };
 
-        search.addEventListener("input", renderTable);
-        ownerFilter.addEventListener("change", renderTable);
-        policyFilter.addEventListener("change", renderTable);
-        renderTable();
+        renderLineageGraph(triggerFlows);
     </script>
 </body>
 </html>
@@ -786,6 +1232,7 @@ def write_relationships_markdown(path: Path, payload: dict[str, Any]) -> None:
 
 def write_dataflow_markdown(path: Path, payload: dict[str, Any]) -> None:
     flow = payload["data_flow"]
+    trigger_flows = payload.get("trigger_flows", [])
     lines = [
         "# Data Flow Classification",
         "",
@@ -798,6 +1245,18 @@ def write_dataflow_markdown(path: Path, payload: dict[str, Any]) -> None:
         hints = ", ".join(row["upstream_hints"])
         lines.append(
             f"| {row['table']} | {row['category']} | {row['owner']} | {row['storage_mode']} | {row['is_realtime']} | {hints} |"
+        )
+
+    lines.extend([
+        "",
+        "## Trigger Flow (Input -> Output)",
+        "",
+        "| Trigger | Type | Inputs | Output | Enabled | Priority |",
+        "|---|---|---|---|---|---|",
+    ])
+    for trg in trigger_flows:
+        lines.append(
+            f"| {trg['trigger']} | {trg['type']} | {', '.join(trg['input_tables'])} | {trg['output_table']} | {trg['enabled']} | {trg['priority']} |"
         )
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -826,6 +1285,177 @@ def write_metrics_markdown(path: Path, payload: dict[str, Any]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def write_external_markdown(path: Path, payload: dict[str, Any]) -> None:
+    external = payload.get("external_mappings", {})
+    centers = external.get("centers", [])
+    replications = external.get("replications", [])
+
+    lines = [
+        "# External Mappings",
+        "",
+        f"Generated at (UTC): {payload['generated_at_utc']}",
+        "",
+        "## Centers",
+        "",
+        f"- Count: {len(centers)}",
+        "",
+        "| Raw Row |",
+        "|---|",
+    ]
+    for row in centers:
+        lines.append(f"| `{json.dumps(row, ensure_ascii=True)}` |")
+
+    lines.extend([
+        "",
+        "## Replications",
+        "",
+        f"- Count: {len(replications)}",
+        "",
+        "| Raw Row |",
+        "|---|",
+    ])
+    for row in replications:
+        lines.append(f"| `{json.dumps(row, ensure_ascii=True)}` |")
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_triggers_markdown(path: Path, payload: dict[str, Any]) -> None:
+    trigger_details = payload.get("trigger_details", [])
+    trigger_flows = payload.get("trigger_flows", [])
+
+    lines = [
+        "# Trigger Flow",
+        "",
+        f"Generated at (UTC): {payload['generated_at_utc']}",
+        "",
+        f"Trigger count: {len(trigger_details)}",
+        "",
+        "## Flow Map",
+        "",
+        "| Trigger | Type | Inputs | Output | Enabled |",
+        "|---|---|---|---|---|",
+    ]
+    for flow in trigger_flows:
+        lines.append(
+            f"| {flow['trigger']} | {flow['type']} | {', '.join(flow['input_tables'])} | {flow['output_table']} | {flow['enabled']} |"
+        )
+
+    lines.extend([
+        "",
+        "## Trigger Definitions",
+        "",
+    ])
+    for trg in trigger_details:
+        lines.append(f"### {trg['name']}")
+        lines.append("")
+        lines.append(f"- Type: {trg['type']}")
+        lines.append(f"- Priority: {trg['priority']}")
+        lines.append(f"- Owner: {trg['owner']}")
+        lines.append(f"- Enabled: {trg['enabled']}")
+        lines.append(f"- Input tables: {', '.join(trg['input_tables'])}")
+        lines.append(f"- Output table: {trg['output_table']}")
+        if trg.get("ddl_error"):
+            lines.append(f"- DDL error: {trg['ddl_error']}")
+        lines.append("")
+        if trg.get("ddl"):
+            lines.append("```sql")
+            lines.append(trg["ddl"].rstrip())
+            lines.append("```")
+            lines.append("")
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_procedures_markdown(path: Path, payload: dict[str, Any]) -> None:
+    procedures = payload.get("procedure_details", [])
+    lines = [
+        "# Procedures",
+        "",
+        f"Generated at (UTC): {payload['generated_at_utc']}",
+        "",
+        f"Procedure count: {len(procedures)}",
+        "",
+        "| Procedure | Type | Return Type | Owner |",
+        "|---|---|---|---|",
+    ]
+    for proc in procedures:
+        lines.append(
+            f"| {proc['name']} | {proc['procedure_type']} | {proc['return_type']} | {proc['owner']} |"
+        )
+
+    lines.extend([
+        "",
+        "## Procedure Definitions",
+        "",
+    ])
+    for proc in procedures:
+        lines.append(f"### {proc['name']}")
+        lines.append("")
+        lines.append(f"- Type: {proc['procedure_type']}")
+        lines.append(f"- Return type: {proc['return_type']}")
+        lines.append(f"- Arguments: {proc['arguments']}")
+        lines.append(f"- Owner: {proc['owner']}")
+        if proc.get("ddl_error"):
+            lines.append(f"- DDL error: {proc['ddl_error']}")
+        lines.append("")
+        if proc.get("ddl"):
+            lines.append("```sql")
+            lines.append(proc["ddl"].rstrip())
+            lines.append("```")
+            lines.append("")
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_timers_markdown(path: Path, payload: dict[str, Any]) -> None:
+    timers = payload.get("timer_details", [])
+    lines = [
+        "# Timers",
+        "",
+        f"Generated at (UTC): {payload['generated_at_utc']}",
+        "",
+        f"Timer count: {len(timers)}",
+        "",
+        "| Timer | Type | Priority | Schedule | Enabled |",
+        "|---|---|---|---|---|",
+    ]
+    for timer in timers:
+        lines.append(
+            f"| {timer['name']} | {timer['timer_type']} | {timer['priority']} | {timer['schedule']} | {timer['enabled']} |"
+        )
+
+    lines.extend([
+        "",
+        "## Timer Definitions",
+        "",
+    ])
+    for timer in timers:
+        lines.append(f"### {timer['name']}")
+        lines.append("")
+        lines.append(f"- Type: {timer['timer_type']}")
+        lines.append(f"- Priority: {timer['priority']}")
+        lines.append(f"- Schedule: {timer['schedule']}")
+        lines.append(f"- Owner: {timer['owner']}")
+        lines.append(f"- Last run time: {timer['last_run_time']}")
+        lines.append(f"- Next run time: {timer['next_run_time']}")
+        lines.append(f"- Enabled: {timer['enabled']}")
+        if timer.get("ddl_error"):
+            lines.append(f"- DDL error: {timer['ddl_error']}")
+        lines.append("")
+        if timer.get("ddl"):
+            lines.append("```sql")
+            lines.append(timer["ddl"].rstrip())
+            lines.append("```")
+            lines.append("")
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def main() -> int:
     args = parse_args()
     if not args.password:
@@ -839,6 +1469,14 @@ def main() -> int:
     cursor = None
     rows: list[tuple[Any, ...]] = []
     schemas: list[dict[str, Any]] = []
+    centers: list[tuple[Any, ...]] = []
+    replications: list[tuple[Any, ...]] = []
+    trigger_rows: list[tuple[Any, ...]] = []
+    trigger_details: list[dict[str, Any]] = []
+    procedure_rows: list[tuple[Any, ...]] = []
+    procedure_details: list[dict[str, Any]] = []
+    timer_rows: list[tuple[Any, ...]] = []
+    timer_details: list[dict[str, Any]] = []
     try:
         connection = connect_db(
             driver_class=args.driver_class,
@@ -850,6 +1488,14 @@ def main() -> int:
         )
         cursor = connection.cursor()
         rows = fetch_show_tables(cursor)
+        centers = fetch_show_centers(cursor)
+        replications = fetch_show_replications(cursor)
+        trigger_rows = fetch_show_triggers(cursor)
+        trigger_details = fetch_trigger_details(cursor, trigger_rows)
+        procedure_rows = fetch_show_procedures(cursor)
+        procedure_details = fetch_procedure_details(cursor, procedure_rows)
+        timer_rows = fetch_show_timers(cursor)
+        timer_details = fetch_timer_details(cursor, timer_rows)
         for row in rows:
             table_name = str(row[0])
             schemas.append(fetch_table_schema(cursor, table_name))
@@ -868,6 +1514,16 @@ def main() -> int:
         [normalize_value(value) for value in row]
         for row in rows
     ]
+    normalized_centers = [
+        [normalize_value(value) for value in row]
+        for row in centers
+    ]
+    normalized_replications = [
+        [normalize_value(value) for value in row]
+        for row in replications
+    ]
+
+    trigger_flows = derive_trigger_flows(trigger_details)
 
     payload = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -893,6 +1549,14 @@ def main() -> int:
         "relationships": relationships,
         "data_flow": data_flow,
         "business_metrics": business_metrics,
+        "external_mappings": {
+            "centers": normalized_centers,
+            "replications": normalized_replications,
+        },
+        "trigger_details": trigger_details,
+        "trigger_flows": trigger_flows,
+        "procedure_details": procedure_details,
+        "timer_details": timer_details,
     }
 
     output_md = Path(args.output_md)
@@ -906,14 +1570,26 @@ def main() -> int:
     output_dataflow_json = Path(args.output_dataflow_json)
     output_metrics_md = Path(args.output_metrics_md)
     output_metrics_json = Path(args.output_metrics_json)
+    output_external_md = Path(args.output_external_md)
+    output_external_json = Path(args.output_external_json)
+    output_triggers_md = Path(args.output_triggers_md)
+    output_triggers_json = Path(args.output_triggers_json)
+    output_procedures_md = Path(args.output_procedures_md)
+    output_procedures_json = Path(args.output_procedures_json)
+    output_timers_md = Path(args.output_timers_md)
+    output_timers_json = Path(args.output_timers_json)
 
     write_markdown(output_md, payload)
     write_json(output_json, payload)
-    write_dashboard(output_dashboard, payload)
+    write_dashboard(output_dashboard, payload, logic_payload)
     write_schema_markdown(output_schema_md, logic_payload)
     write_relationships_markdown(output_relationships_md, logic_payload)
     write_dataflow_markdown(output_dataflow_md, logic_payload)
     write_metrics_markdown(output_metrics_md, logic_payload)
+    write_external_markdown(output_external_md, logic_payload)
+    write_triggers_markdown(output_triggers_md, logic_payload)
+    write_procedures_markdown(output_procedures_md, logic_payload)
+    write_timers_markdown(output_timers_md, logic_payload)
     write_json(output_schema_json, {"schemas": schemas, "generated_at_utc": payload["generated_at_utc"]})
     write_json(
         output_relationships_json,
@@ -927,6 +1603,38 @@ def main() -> int:
         output_metrics_json,
         {"business_metrics": business_metrics, "generated_at_utc": payload["generated_at_utc"]},
     )
+    write_json(
+        output_external_json,
+        {
+            "external_mappings": {
+                "centers": normalized_centers,
+                "replications": normalized_replications,
+            },
+            "generated_at_utc": payload["generated_at_utc"],
+        },
+    )
+    write_json(
+        output_triggers_json,
+        {
+            "trigger_details": trigger_details,
+            "trigger_flows": trigger_flows,
+            "generated_at_utc": payload["generated_at_utc"],
+        },
+    )
+    write_json(
+        output_procedures_json,
+        {
+            "procedure_details": procedure_details,
+            "generated_at_utc": payload["generated_at_utc"],
+        },
+    )
+    write_json(
+        output_timers_json,
+        {
+            "timer_details": timer_details,
+            "generated_at_utc": payload["generated_at_utc"],
+        },
+    )
 
     print(f"Wrote {len(rows)} tables to {output_md}")
     print(f"Wrote JSON payload to {output_json}")
@@ -937,6 +1645,10 @@ def main() -> int:
     )
     print(f"Wrote data flow classification to {output_dataflow_md} and {output_dataflow_json}")
     print(f"Wrote business metrics to {output_metrics_md} and {output_metrics_json}")
+    print(f"Wrote external mappings to {output_external_md} and {output_external_json}")
+    print(f"Wrote trigger flow to {output_triggers_md} and {output_triggers_json}")
+    print(f"Wrote procedures to {output_procedures_md} and {output_procedures_json}")
+    print(f"Wrote timers to {output_timers_md} and {output_timers_json}")
     return 0
 
 

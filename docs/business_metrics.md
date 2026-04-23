@@ -1,6 +1,6 @@
 # Business Metric Candidates
 
-Generated at (UTC): 2026-04-23T05:51:04.482251+00:00
+Generated at (UTC): 2026-04-23T06:57:08.306895+00:00
 
 ## BuySells
 
