@@ -37,6 +37,23 @@
     .lineage-node-table { fill:#e8f3f6; stroke:#0b728f; stroke-width:1.1; }
     .lineage-node-trigger { fill:#fce8cc; stroke:#c77d1a; stroke-width:1.1; }
     .status { margin:0 0 10px; color:var(--muted); font-size:12px; }
+    .statusbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+    .statusbar .status { margin:0; }
+    .query-btn { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:8px; padding:5px 9px; font-size:12px; cursor:pointer; }
+    .query-btn:hover { border-color:#cdbfae; }
+    .query-panel { display:none; border:1px solid var(--line); border-radius:10px; padding:10px; background:#fcfbf9; margin-bottom:10px; }
+    .query-panel.open { display:block; }
+    .query-help { color:var(--muted); font-size:12px; margin:0 0 8px; }
+    .query-input { width:100%; min-height:130px; resize:vertical; border:1px solid #d8cfc2; border-radius:8px; padding:10px; font:12px/1.45 'Cascadia Code','Consolas','Courier New',monospace; color:var(--ink); background:#fff; }
+    .query-options { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+    .query-opt { display:grid; gap:4px; }
+    .query-opt label { color:var(--muted); font-size:11px; text-transform:uppercase; }
+    .query-opt input { width:100%; border:1px solid #d8cfc2; border-radius:8px; padding:7px 9px; font-size:12px; background:#fff; color:var(--ink); }
+    .query-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
+    .query-run { border:1px solid #0b728f; background:#0b728f; color:#fff; border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer; }
+    .query-close { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer; }
+    .query-run:hover { opacity:.92; }
+    .query-close:hover { border-color:#cdbfae; }
     .loading { padding:16px; border:1px dashed var(--line); border-radius:10px; color:var(--muted); background:#fffcf8; }
     .error { padding:16px; border:1px solid #f0c2bc; border-radius:10px; color:#7a1f1f; background:#fff1ef; }
     table { width:100%; border-collapse:collapse; font-size:12px; }
@@ -70,7 +87,28 @@
     <main class="right">
       <section class="panel">
         <h2 id="title">Select a node</h2>
-        <p class="status" id="status">Live mode: queries AMI on click.</p>
+        <div class="statusbar">
+          <p class="status" id="status">Live mode: queries AMI on click.</p>
+          <button class="query-btn" id="executeQueryBtn" type="button">Execute Query</button>
+        </div>
+        <div class="query-panel" id="queryPanel">
+          <p class="query-help">Run one SQL statement at a time. Press Ctrl+Enter to execute.</p>
+          <textarea class="query-input" id="queryInput" spellcheck="false" placeholder="show triggers"></textarea>
+          <div class="query-options">
+            <div class="query-opt">
+              <label for="queryLimitInput">LIMIT</label>
+              <input id="queryLimitInput" type="number" min="1" step="1" placeholder="500">
+            </div>
+            <div class="query-opt">
+              <label for="queryTimeoutInput">Timeout (sec)</label>
+              <input id="queryTimeoutInput" type="number" min="1" step="1" value="20" placeholder="20">
+            </div>
+          </div>
+          <div class="query-actions">
+            <button class="query-close" id="queryCloseBtn" type="button">Close</button>
+            <button class="query-run" id="queryRunBtn" type="button">Run Query</button>
+          </div>
+        </div>
         <div class="meta" id="meta"></div>
         <div id="tableWrap"></div>
       </section>
@@ -84,6 +122,13 @@
     const tableWrap = document.getElementById('tableWrap');
     const statusEl = document.getElementById('status');
     const globalMeta = document.getElementById('globalMeta');
+    const executeQueryBtn = document.getElementById('executeQueryBtn');
+    const queryPanel = document.getElementById('queryPanel');
+    const queryInput = document.getElementById('queryInput');
+    const queryLimitInput = document.getElementById('queryLimitInput');
+    const queryTimeoutInput = document.getElementById('queryTimeoutInput');
+    const queryRunBtn = document.getElementById('queryRunBtn');
+    const queryCloseBtn = document.getElementById('queryCloseBtn');
 
     const params = new URLSearchParams(window.location.search);
     const targetInstance = (params.get('instance') || '').toLowerCase();
@@ -113,6 +158,22 @@
       const th = headers.map((h) => `<th>${h}</th>`).join('');
       const tr = rows.map((r) => `<tr>${r.map((c) => `<td>${fmt(c)}</td>`).join('')}</tr>`).join('');
       return `<div class="tbl"><table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
+    };
+
+    const renderQueryResult = (result) => {
+      const lines = [
+        `<div class="k"><div class="n">Query</div><div class="v">${esc(result.sql || '')}</div></div>`,
+        `<div class="k"><div class="n">Elapsed</div><div class="v">${esc(fmt(result.elapsed_ms))} ms</div></div>`,
+      ];
+      if (result.has_result_set) {
+        lines.push(`<div class="k"><div class="n">Rows</div><div class="v">${esc(fmt(result.row_count))}${result.rows_clipped ? ' (clipped to 2000)' : ''}</div></div>`);
+        const cols = Array.isArray(result.columns) ? result.columns : [];
+        const rows = Array.isArray(result.rows) ? result.rows : [];
+        tableWrap.innerHTML = `<div class="meta">${lines.join('')}</div>${renderRows(cols, rows)}`;
+      } else {
+        lines.push(`<div class="k"><div class="n">Affected Rows</div><div class="v">${esc(fmt(result.affected_rows))}</div></div>`);
+        tableWrap.innerHTML = `<div class="meta">${lines.join('')}</div><div class="loading">Statement executed successfully.</div>`;
+      }
     };
 
     // Renders a table where column 0 (or configurable per colDescribeMap) becomes a clickable
@@ -553,6 +614,91 @@
         statusEl.textContent = 'Live mode: request failed';
       }
     };
+
+    const runQueryFromInput = async () => {
+      if (!currentInstance) {
+        alert('Select an instance first.');
+        return;
+      }
+      let query = String(queryInput.value || '').trim();
+      if (!query) return;
+
+      const limitText = String(queryLimitInput.value || '').trim();
+      if (limitText) {
+        const limitNum = Number(limitText);
+        if (!Number.isInteger(limitNum) || limitNum <= 0) {
+          alert('LIMIT must be a positive integer.');
+          return;
+        }
+        const isRowQuery = /^\s*(select|show|describe|with)\b/i.test(query);
+        const hasLimit = /\blimit\b\s+\d+/i.test(query);
+        if (isRowQuery && !hasLimit) {
+          const trimmed = query.replace(/\s*;\s*$/, '');
+          query = `${trimmed} LIMIT ${limitNum}`;
+        }
+      }
+
+      const timeoutSecText = String(queryTimeoutInput.value || '').trim();
+      const timeoutSec = timeoutSecText ? Number(timeoutSecText) : 20;
+      if (!Number.isFinite(timeoutSec) || timeoutSec <= 0) {
+        alert('Timeout must be a positive number of seconds.');
+        return;
+      }
+      const timeoutMs = Math.round(timeoutSec * 1000);
+
+      statusEl.textContent = 'Executing query...';
+      renderLoading(`Running query on ${currentInstance}...`);
+      try {
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), timeoutMs);
+        let res;
+        try {
+          res = await fetch(`/api/instance/${encodeURIComponent(currentInstance)}/query`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sql: query }),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(t);
+        }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        renderQueryResult(data);
+        statusEl.textContent = `Query executed in ${fmt(data.elapsed_ms)} ms`;
+      } catch (err) {
+        if (err && err.name === 'AbortError') {
+          renderError(`Query timed out after ${timeoutSec} seconds.`);
+          statusEl.textContent = 'Query execution timed out';
+          return;
+        }
+        renderError(err && err.message ? err.message : String(err));
+        statusEl.textContent = 'Query execution failed';
+      }
+    };
+
+    executeQueryBtn.addEventListener('click', () => {
+      if (!currentInstance) {
+        alert('Select an instance first.');
+        return;
+      }
+      queryPanel.classList.add('open');
+      if (!queryInput.value.trim()) queryInput.value = 'show tables';
+      queryInput.focus();
+    });
+
+    queryCloseBtn.addEventListener('click', () => {
+      queryPanel.classList.remove('open');
+    });
+
+    queryRunBtn.addEventListener('click', runQueryFromInput);
+
+    queryInput.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        runQueryFromInput();
+      }
+    });
 
     const boot = async () => {
       try {

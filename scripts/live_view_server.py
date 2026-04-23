@@ -10,6 +10,7 @@ import os
 import re
 import socket
 import time
+import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -142,13 +143,29 @@ def parse_args() -> argparse.Namespace:
 
 
 def normalize_scalar(value: Any) -> Any:
-    if value is None or isinstance(value, (bool, int, float, str)):
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return None
+        return value
+    if value is None or isinstance(value, (bool, int, str)):
         return value
     return str(value)
 
 
 def normalize_rows(rows: list[tuple[Any, ...]]) -> list[list[Any]]:
     return [[normalize_scalar(v) for v in row] for row in rows]
+
+
+def sanitize_for_json(value: Any) -> Any:
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {str(k): sanitize_for_json(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [sanitize_for_json(v) for v in value]
+    if isinstance(value, tuple):
+        return [sanitize_for_json(v) for v in value]
+    return value
 
 
 def section_overview(cursor: Any) -> dict[str, Any]:
@@ -609,7 +626,7 @@ class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.write_json(500, {"error": str(exc)})
 
     def write_json(self, code: int, payload: dict[str, Any]) -> None:
-        raw = json.dumps(payload, ensure_ascii=True).encode("utf-8")
+        raw = json.dumps(sanitize_for_json(payload), ensure_ascii=True, allow_nan=False).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
