@@ -1,0 +1,18 @@
+{
+  "instances": [
+    {
+      "name": "instance-01",
+      "url": "jdbc:amisql:125.125.126.5:3280",
+      "user": "pwadmin",
+      "password_env": "AMI_DB_PASSWORD",
+      "jar_path": "./out.jar"
+    },
+    {
+      "name": "instance-02",
+      "url": "jdbc:amisql:125.125.126.6:3280",
+      "user": "pwadmin",
+      "password_env": "AMI_DB_PASSWORD",
+      "jar_path": "./out.jar"
+    }
+  ]
+}

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>DB Docs Portal</title>
+  <title>AMI Flow Viewer Portal</title>
   <style>
     :root {
       --bg: #f4f1eb;
@@ -58,16 +58,24 @@
 <body>
   <div class="wrap">
     <section class="hero">
-      <h1>Database Documentation Portal</h1>
+      <h1>AMI Flow Viewer Portal</h1>
       <p>Start here to browse generated DB behavior docs.</p>
     </section>
 
     <section class="grid">
       <article class="card">
         <h3>Unified Explorer</h3>
-        <p class="muted">Interactive tabbed dashboard for tables, schema, relationships, data flow, metrics, external mappings, and trigger flow.</p>
+        <p class="muted">Multi-instance AMI Flow Viewer with left tree and right details pane.</p>
         <ul>
-          <li><a href="tables_dashboard.html">Open Behavior Explorer</a></li>
+          <li><a href="ami_flow_viewer.html">Open AMI Flow Viewer</a></li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h3>Instances</h3>
+        <p class="muted">Quick links into specific instances from the latest multi-instance snapshot.</p>
+        <ul id="instanceLinks">
+          <li class="muted">Run multi-instance generation to populate this list.</li>
         </ul>
       </article>
 
@@ -144,5 +152,25 @@
       </article>
     </section>
   </div>
+  <script>
+    (async () => {
+      const list = document.getElementById('instanceLinks');
+      if (!list) return;
+      try {
+        const res = await fetch('ami_flow_viewer.json', { cache: 'no-store' });
+        if (!res.ok) return;
+        const payload = await res.json();
+        const instances = Array.isArray(payload.instances) ? payload.instances : [];
+        if (!instances.length) return;
+        list.innerHTML = instances.map((inst) => {
+          const name = String(inst.name || 'instance');
+          const href = 'ami_flow_viewer.html?instance=' + encodeURIComponent(name);
+          return '<li><a href="' + href + '">' + name + '</a></li>';
+        }).join('');
+      } catch (_) {
+        // Keep default text when snapshot file is unavailable.
+      }
+    })();
+  </script>
 </body>
 </html>

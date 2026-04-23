@@ -42,12 +42,16 @@ DEFAULTS = {
     "output_procedures_json": "./docs/procedures.json",
     "output_timers_md": "./docs/timers.md",
     "output_timers_json": "./docs/timers.json",
+    "instances_config": "./instances.json",
+    "output_multi_dashboard": "./docs/ami_flow_viewer.html",
+    "output_multi_json": "./docs/ami_flow_viewer.json",
+    "max_instances": 20,
 }
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Connect to AMI DB through JDBC and document SHOW TABLES output."
+        description="AMI Flow Viewer generator for one or many AMI DB instances."
     )
     parser.add_argument("--driver-class", default=os.getenv("AMI_DB_DRIVER", DEFAULTS["driver_class"]))
     parser.add_argument("--url", default=os.getenv("AMI_DB_URL", DEFAULTS["url"]))
@@ -79,6 +83,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-procedures-json", default=DEFAULTS["output_procedures_json"])
     parser.add_argument("--output-timers-md", default=DEFAULTS["output_timers_md"])
     parser.add_argument("--output-timers-json", default=DEFAULTS["output_timers_json"])
+    parser.add_argument(
+        "--instances-config",
+        default=None,
+        help=(
+            "Optional JSON file containing multiple instances. "
+            "Format: either a list of instances or {\"instances\": [...]}"
+        ),
+    )
+    parser.add_argument("--output-multi-dashboard", default=DEFAULTS["output_multi_dashboard"])
+    parser.add_argument("--output-multi-json", default=DEFAULTS["output_multi_json"])
+    parser.add_argument("--max-instances", type=int, default=DEFAULTS["max_instances"])
     parser.add_argument(
         "--java-home",
         default=os.getenv(
@@ -601,7 +616,7 @@ def write_dashboard(
 <head>
     <meta charset=\"utf-8\">
     <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-    <title>DB Behavior Explorer</title>
+    <title>AMI Flow Viewer</title>
     <style>
         :root {
             --bg: #f2efe9;
@@ -710,7 +725,7 @@ def write_dashboard(
 <body>
     <div class=\"wrap\">
         <section class=\"hero\">
-            <h1>DB Behavior Explorer</h1>
+            <h1>AMI Flow Viewer</h1>
             <p id=\"source\"></p>
             <p id=\"generated\"></p>
         </section>
@@ -1514,8 +1529,564 @@ def write_timers_markdown(path: Path, payload: dict[str, Any]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def load_instances_config(path: Path) -> list[dict[str, Any]]:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(raw, list):
+                instances = raw
+        elif isinstance(raw, dict) and isinstance(raw.get("instances"), list):
+                instances = raw["instances"]
+        else:
+                raise ValueError("instances config must be a list or an object with an 'instances' list")
+
+        out: list[dict[str, Any]] = []
+        for idx, item in enumerate(instances, start=1):
+                if not isinstance(item, dict):
+                        raise ValueError(f"instance entry #{idx} must be an object")
+                out.append(item)
+        return out
+
+
+def resolve_instance_password(instance_cfg: dict[str, Any], fallback: str | None) -> str:
+        if instance_cfg.get("password"):
+                return str(instance_cfg["password"])
+        if instance_cfg.get("password_env"):
+                env_name = str(instance_cfg["password_env"])
+                env_value = os.getenv(env_name)
+                if env_value:
+                        return env_value
+        if fallback:
+                return fallback
+        raise ValueError(
+                f"Missing password for instance '{instance_cfg.get('name', 'unknown')}'. "
+                "Set password, password_env, or AMI_DB_PASSWORD."
+        )
+
+
+def collect_instance_snapshot(instance_cfg: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+        name = str(instance_cfg.get("name") or instance_cfg.get("id") or instance_cfg.get("url") or "instance")
+        driver_class = str(instance_cfg.get("driver_class") or args.driver_class)
+        url = str(instance_cfg.get("url") or args.url)
+        user = str(instance_cfg.get("user") or args.user)
+        jar_path = str(instance_cfg.get("jar_path") or args.jar_path)
+        java_home = str(instance_cfg.get("java_home") or args.java_home)
+        password = resolve_instance_password(instance_cfg, args.password)
+
+        connection = None
+        cursor = None
+        rows: list[tuple[Any, ...]] = []
+        schemas: list[dict[str, Any]] = []
+        centers: list[tuple[Any, ...]] = []
+        replications: list[tuple[Any, ...]] = []
+        trigger_rows: list[tuple[Any, ...]] = []
+        trigger_details: list[dict[str, Any]] = []
+        procedure_rows: list[tuple[Any, ...]] = []
+        procedure_details: list[dict[str, Any]] = []
+        timer_rows: list[tuple[Any, ...]] = []
+        timer_details: list[dict[str, Any]] = []
+
+        try:
+                connection = connect_db(
+                        driver_class=driver_class,
+                        url=url,
+                        user=user,
+                        password=password,
+                        jar_path=jar_path,
+                        java_home=java_home,
+                )
+                cursor = connection.cursor()
+                rows = fetch_show_tables(cursor)
+                centers = fetch_show_centers(cursor)
+                replications = fetch_show_replications(cursor)
+                trigger_rows = fetch_show_triggers(cursor)
+                trigger_details = fetch_trigger_details(cursor, trigger_rows)
+                procedure_rows = fetch_show_procedures(cursor)
+                procedure_details = fetch_procedure_details(cursor, procedure_rows)
+                timer_rows = fetch_show_timers(cursor)
+                timer_details = fetch_timer_details(cursor, timer_rows)
+                for row in rows:
+                        table_name = str(row[0])
+                        schemas.append(fetch_table_schema(cursor, table_name))
+        finally:
+                if cursor is not None:
+                        cursor.close()
+                if connection is not None:
+                        connection.close()
+
+        def normalize_value(value: Any) -> Any:
+                if value is None or isinstance(value, (bool, int, float, str)):
+                        return value
+                return str(value)
+
+        normalized_rows = [[normalize_value(v) for v in row] for row in rows]
+        normalized_centers = [[normalize_value(v) for v in row] for row in centers]
+        normalized_replications = [[normalize_value(v) for v in row] for row in replications]
+
+        table_records = build_table_records(normalized_rows)
+        relationships = infer_relationships(schemas)
+        data_flow = classify_data_flow(table_records, schemas)
+        business_metrics = infer_business_metrics(schemas)
+        trigger_flows = derive_trigger_flows(trigger_details)
+
+        return {
+                "name": name,
+                "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+                "url": url,
+                "user": user,
+                "driver_class": driver_class,
+                "row_count": len(rows),
+                "tables": table_records,
+                "schemas": schemas,
+                "relationships": relationships,
+                "data_flow": data_flow,
+                "business_metrics": business_metrics,
+                "external_mappings": {
+                        "centers": normalized_centers,
+                        "replications": normalized_replications,
+                },
+                "trigger_details": trigger_details,
+                "trigger_flows": trigger_flows,
+                "procedure_details": procedure_details,
+                "timer_details": timer_details,
+        }
+
+
+def write_multi_instance_dashboard(path: Path, payload: dict[str, Any]) -> None:
+        data_json = json.dumps(payload, ensure_ascii=True)
+        html = """<!doctype html>
+<html lang=\"en\">
+<head>
+    <meta charset=\"utf-8\">
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+    <title>AMI Flow Viewer</title>
+    <style>
+        :root { --bg:#f6f3ed; --card:#fff; --ink:#2b2926; --muted:#6a635b; --line:#e7dfd4; --brand:#0b728f; }
+        * { box-sizing:border-box; }
+        body { margin:0; font-family:Segoe UI,Tahoma,sans-serif; background:var(--bg); color:var(--ink); }
+        .app { display:grid; grid-template-columns: 320px 1fr; min-height:100vh; }
+        .left { border-right:1px solid var(--line); background:#fff; overflow:auto; }
+        .right { overflow:auto; padding:16px; }
+        .head { padding:14px; border-bottom:1px solid var(--line); position:sticky; top:0; background:#fff; z-index:2; }
+        .head h1 { margin:0; font-size:20px; }
+        .head p { margin:4px 0 0; color:var(--muted); font-size:12px; }
+        .tree { padding:10px; }
+        .tree details { border:1px solid var(--line); border-radius:10px; background:#faf8f5; margin-bottom:8px; }
+        .tree summary { cursor:pointer; list-style:none; padding:8px 10px; font-weight:700; }
+        .tree summary::-webkit-details-marker { display:none; }
+        .leaf { display:block; width:100%; border:0; background:transparent; text-align:left; padding:7px 12px; cursor:pointer; color:var(--ink); }
+        .leaf:hover { background:#eef7fa; }
+        .leaf.active { background:var(--brand); color:#fff; }
+        .panel { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; }
+        .panel h2 { margin:0 0 10px; }
+        .meta { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:8px; margin-bottom:10px; }
+        .k { border:1px solid var(--line); border-radius:10px; padding:8px; background:#fcfbf9; }
+        .k .n { color:var(--muted); font-size:11px; text-transform:uppercase; }
+        .k .v { margin-top:4px; font-weight:700; }
+        .stack { display:grid; gap:12px; }
+        .chart-card { border:1px solid var(--line); border-radius:10px; background:#fcfbf9; padding:10px; }
+        .chart-card p { margin:0 0 8px; color:var(--muted); font-size:12px; }
+        .svg-wrap { overflow:auto; border:1px solid #f2ece2; border-radius:10px; background:#fff; }
+        .lineage-label { fill:#594f46; font-size:10px; font-family:Segoe UI,Tahoma,sans-serif; }
+        .lineage-label-tspan { dominant-baseline:middle; }
+        .lineage-edge { stroke:#8f8a84; stroke-width:1.4; fill:none; marker-end:url(#arrow); }
+        .lineage-node-table { fill:#e8f3f6; stroke:#0b728f; stroke-width:1.1; }
+        .lineage-node-trigger { fill:#fce8cc; stroke:#c77d1a; stroke-width:1.1; }
+        table { width:100%; border-collapse:collapse; font-size:12px; }
+        th,td { border-bottom:1px solid #f2ece2; text-align:left; padding:8px; vertical-align:top; }
+        th { background:#f9f5ef; position:sticky; top:0; }
+        .tbl { max-height:70vh; overflow:auto; border:1px solid var(--line); border-radius:10px; }
+        @media (max-width: 980px) { .app { grid-template-columns:1fr; } .left { border-right:0; border-bottom:1px solid var(--line);} .meta{grid-template-columns:1fr 1fr;} }
+    </style>
+</head>
+<body>
+    <div class=\"app\">
+        <aside class=\"left\">
+            <div class=\"head\">
+                <h1>AMI Flow Viewer</h1>
+                <p id=\"globalMeta\"></p>
+            </div>
+            <div class=\"tree\" id=\"tree\"></div>
+        </aside>
+        <main class=\"right\">
+            <section class=\"panel\">
+                <h2 id=\"title\">Select a node</h2>
+                <div class=\"meta\" id=\"meta\"></div>
+                <div id=\"tableWrap\"></div>
+            </section>
+        </main>
+    </div>
+    <script>
+        const payload = __AMI_DATA__;
+        const instances = payload.instances || [];
+        const tree = document.getElementById('tree');
+        const title = document.getElementById('title');
+        const meta = document.getElementById('meta');
+        const tableWrap = document.getElementById('tableWrap');
+        const globalMeta = document.getElementById('globalMeta');
+        const params = new URLSearchParams(window.location.search);
+        const targetInstance = (params.get('instance') || '').toLowerCase();
+        globalMeta.textContent = `Instances: ${instances.length} | Generated: ${payload.generated_at_utc}`;
+
+        const fmt = (v) => (v === null || v === undefined ? '-' : String(v));
+        const viewDefs = [
+            ['overview', 'Overview'],
+            ['tables', 'Tables'],
+            ['trigger_flows', 'Trigger Flow'],
+            ['procedure_details', 'Procedures'],
+            ['timer_details', 'Timers'],
+            ['relationships', 'Relationships'],
+            ['data_flow', 'Data Flow'],
+            ['business_metrics', 'Metrics'],
+        ];
+
+        const renderRows = (headers, rows) => {
+            const th = headers.map((h) => `<th>${h}</th>`).join('');
+            const tr = rows.map((r) => `<tr>${r.map((c) => `<td>${fmt(c)}</td>`).join('')}</tr>`).join('');
+            return `<div class="tbl"><table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
+        };
+
+        const esc = (v) => String(v)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
+        const renderLineageGraph = (svg, summary, flows) => {
+            if (!svg || !summary) return;
+
+            const activeFlows = (flows || []).filter((f) => f && f.enabled !== false);
+            if (activeFlows.length === 0) {
+                summary.textContent = 'No active trigger flow to visualize.';
+                svg.setAttribute('viewBox', '0 0 760 180');
+                svg.innerHTML = "<text x='24' y='80' class='lineage-label'>No trigger flow available</text>";
+                return;
+            }
+
+            const producedTables = new Set(
+                activeFlows
+                    .map((f) => (f && f.output_table ? String(f.output_table) : ''))
+                    .filter((v) => v.length > 0)
+            );
+
+            const outputProducer = new Map();
+            activeFlows.forEach((f, i) => {
+                const out = f && f.output_table ? String(f.output_table) : '';
+                if (out && !outputProducer.has(out)) outputProducer.set(out, i);
+            });
+
+            const normalizeInputs = (f) =>
+                Array.isArray(f.input_tables) ? f.input_tables.map((v) => String(v)) : [];
+
+            const indegree = new Array(activeFlows.length).fill(0);
+            const edges = new Map();
+            for (let i = 0; i < activeFlows.length; i++) edges.set(i, []);
+
+            activeFlows.forEach((f, idx) => {
+                const inputs = normalizeInputs(f);
+                for (const inp of inputs) {
+                    const producerIdx = outputProducer.get(inp);
+                    if (producerIdx !== undefined && producerIdx !== idx) {
+                        edges.get(producerIdx).push(idx);
+                        indegree[idx] += 1;
+                    }
+                }
+            });
+
+            const flowSortKey = (idx) => {
+                const f = activeFlows[idx];
+                const inputs = normalizeInputs(f);
+                const externalInputs = inputs.filter((t) => !producedTables.has(t));
+                const firstExternal = externalInputs.length ? externalInputs[0] : '';
+                const pri = Number(f.priority ?? 0);
+                const trig = String(f.trigger || '');
+                return [firstExternal.toLowerCase(), pri, trig.toLowerCase()];
+            };
+
+            const compareIdx = (a, b) => {
+                const ka = flowSortKey(a);
+                const kb = flowSortKey(b);
+                if (ka[0] !== kb[0]) return ka[0].localeCompare(kb[0]);
+                if (ka[1] !== kb[1]) return ka[1] - kb[1];
+                return ka[2].localeCompare(kb[2]);
+            };
+
+            const ready = [];
+            for (let i = 0; i < activeFlows.length; i++) {
+                if (indegree[i] === 0) ready.push(i);
+            }
+            ready.sort(compareIdx);
+
+            const orderedIndices = [];
+            while (ready.length > 0) {
+                const cur = ready.shift();
+                orderedIndices.push(cur);
+                const nexts = edges.get(cur) || [];
+                for (const nextIdx of nexts) {
+                    indegree[nextIdx] -= 1;
+                    if (indegree[nextIdx] === 0) {
+                        ready.push(nextIdx);
+                        ready.sort(compareIdx);
+                    }
+                }
+            }
+
+            for (let i = 0; i < activeFlows.length; i++) {
+                if (!orderedIndices.includes(i)) orderedIndices.push(i);
+            }
+
+            const orderedFlows = orderedIndices.map((i) => activeFlows[i]);
+            const maxRows = Math.max(orderedFlows.length, 1);
+            const rowGap = 36;
+            const topPad = 36;
+            const height = Math.max(220, topPad * 2 + rowGap * maxRows);
+            svg.setAttribute('viewBox', `0 0 760 ${height}`);
+
+            const sx = 130;
+            const tx = 380;
+            const dx = 630;
+            const rectW = 170;
+            const rectH = 22;
+
+            const edgeLines = [];
+            const rowNodes = orderedFlows.map((f, i) => {
+                const y = topPad + i * rowGap;
+                const inputs = Array.isArray(f.input_tables) ? f.input_tables.map((v) => String(v)) : [];
+                const sourceLabel = inputs.length > 0 ? inputs.join('\\n') : '(none)';
+                const triggerLabel = String(f.trigger || 'unknown_trigger');
+                const outputLabel = String(f.output_table || '(none)');
+
+                edgeLines.push(
+                    `<path class='lineage-edge' d='M ${sx + rectW / 2} ${y} C ${sx + 120} ${y}, ${tx - 120} ${y}, ${tx - rectW / 2} ${y}'></path>`
+                );
+                edgeLines.push(
+                    `<path class='lineage-edge' d='M ${tx + rectW / 2} ${y} C ${tx + 120} ${y}, ${dx - 120} ${y}, ${dx - rectW / 2} ${y}'></path>`
+                );
+
+                return { sourceLabel, triggerLabel, outputLabel, y };
+            });
+
+            const drawNode = (x, y, name, klass) => {
+                const text = esc(name);
+                const lines = String(name).split('\\n').map((s) => esc(s));
+                const lineHeight = 11;
+                const startY = y - ((lines.length - 1) * lineHeight) / 2;
+                const tspans = lines.map((ln, i) =>
+                    `<tspan class='lineage-label-tspan' x='${x}' y='${startY + i * lineHeight}'>${ln}</tspan>`
+                ).join('');
+                const dynamicHeight = Math.max(rectH, 12 + lines.length * lineHeight);
+                return `<g><rect class='${klass}' x='${x - rectW / 2}' y='${y - dynamicHeight / 2}' width='${rectW}' height='${dynamicHeight}' rx='5'></rect><title>${text}</title><text class='lineage-label' x='${x}' y='${y}' text-anchor='middle'>${tspans}</text></g>`;
+            };
+
+            const labels = [
+                `<text class='lineage-label' x='${sx}' y='18' text-anchor='middle'>Source Tables (All Inputs)</text>`,
+                `<text class='lineage-label' x='${tx}' y='18' text-anchor='middle'>Triggers</text>`,
+                `<text class='lineage-label' x='${dx}' y='18' text-anchor='middle'>Target Tables</text>`,
+            ].join('');
+
+            const sourceNodes = rowNodes.map((n) => drawNode(sx, n.y, n.sourceLabel, 'lineage-node-table')).join('');
+            const triggerNodes = rowNodes.map((n) => drawNode(tx, n.y, n.triggerLabel, 'lineage-node-trigger')).join('');
+            const targetNodes = rowNodes.map((n) => drawNode(dx, n.y, n.outputLabel, 'lineage-node-table')).join('');
+
+            summary.textContent = `Ordered flows: ${rowNodes.length} (auto dependency order: source -> trigger -> target)`;
+            svg.innerHTML = "<defs><marker id='arrow' markerWidth='9' markerHeight='6' refX='8' refY='3' orient='auto'><path d='M0,0 L9,3 L0,6 z' fill='#8f8a84'></path></marker></defs>" + labels + edgeLines.join('') + sourceNodes + triggerNodes + targetNodes;
+        };
+
+        const renderView = (inst, view) => {
+            title.textContent = `${inst.name} / ${view}`;
+            const kpis = [
+                ['URL', inst.url],
+                ['User', inst.user],
+                ['Tables', (inst.tables || []).length],
+                ['Triggers', (inst.trigger_flows || []).length],
+                ['Procedures', (inst.procedure_details || []).length],
+                ['Timers', (inst.timer_details || []).length],
+            ];
+            meta.innerHTML = kpis.map(([n,v]) => `<div class=\"k\"><div class=\"n\">${n}</div><div class=\"v\">${fmt(v)}</div></div>`).join('');
+
+            if (view === 'overview') {
+                tableWrap.innerHTML = renderRows(
+                    ['Section', 'Count'],
+                    [
+                        ['Tables', (inst.tables || []).length],
+                        ['Schemas', (inst.schemas || []).length],
+                        ['Relationships', (inst.relationships || []).length],
+                        ['Trigger Flows', (inst.trigger_flows || []).length],
+                        ['Procedures', (inst.procedure_details || []).length],
+                        ['Timers', (inst.timer_details || []).length],
+                    ]
+                );
+                return;
+            }
+
+            if (view === 'tables') {
+                tableWrap.innerHTML = renderRows(
+                    ['Table', 'Owner', 'Rows', 'Columns', 'Realtime'],
+                    (inst.tables || []).map((t) => [t.name, t.owner, t.row_estimate, t.column_count, t.is_realtime])
+                );
+                return;
+            }
+
+            if (view === 'trigger_flows') {
+                tableWrap.innerHTML = `<div class="stack"><div class="chart-card"><p id="lineageSummary"></p><div class="svg-wrap"><svg id="lineageGraph" width="100%" height="520" role="img" aria-label="Trigger flow chart"></svg></div></div>${renderRows(
+                    ['Trigger', 'Type', 'Inputs', 'Output', 'Enabled', 'Priority'],
+                    (inst.trigger_flows || []).map((t) => [t.trigger, t.type, (t.input_tables || []).join(', '), t.output_table, t.enabled, t.priority])
+                )}</div>`;
+                renderLineageGraph(
+                    document.getElementById('lineageGraph'),
+                    document.getElementById('lineageSummary'),
+                    inst.trigger_flows || []
+                );
+                return;
+            }
+
+            if (view === 'procedure_details') {
+                tableWrap.innerHTML = renderRows(
+                    ['Procedure', 'Type', 'Return', 'Owner', 'Arguments'],
+                    (inst.procedure_details || []).map((p) => [p.name, p.procedure_type, p.return_type, p.owner, p.arguments])
+                );
+                return;
+            }
+
+            if (view === 'timer_details') {
+                tableWrap.innerHTML = renderRows(
+                    ['Timer', 'Type', 'Priority', 'Schedule', 'Enabled', 'Next Run'],
+                    (inst.timer_details || []).map((t) => [t.name, t.timer_type, t.priority, t.schedule, t.enabled, t.next_run_time])
+                );
+                return;
+            }
+
+            if (view === 'relationships') {
+                tableWrap.innerHTML = renderRows(
+                    ['Left', 'Right', 'Shared Keys', 'Strength'],
+                    (inst.relationships || []).map((r) => [r.left_table, r.right_table, (r.shared_keys || []).join(', '), r.strength])
+                );
+                return;
+            }
+
+            if (view === 'data_flow') {
+                tableWrap.innerHTML = renderRows(
+                    ['Table', 'Category', 'Owner', 'Realtime', 'Hints'],
+                    (inst.data_flow || []).map((d) => [d.table, d.category, d.owner, d.is_realtime, (d.upstream_hints || []).join(', ')])
+                );
+                return;
+            }
+
+            if (view === 'business_metrics') {
+                tableWrap.innerHTML = renderRows(
+                    ['Table', 'Metric', 'Formula Hint'],
+                    (inst.business_metrics || []).flatMap((m) => (m.suggested_metrics || []).map((s) => [m.table, s.metric, s.formula_hint]))
+                );
+            }
+        };
+
+        let firstAction = null;
+        instances.forEach((inst, idx) => {
+            const details = document.createElement('details');
+            const isTarget = targetInstance && String(inst.name || '').toLowerCase() === targetInstance;
+            details.open = isTarget || (!targetInstance && idx === 0);
+            const summary = document.createElement('summary');
+            summary.textContent = inst.name;
+            details.appendChild(summary);
+
+            viewDefs.forEach(([key, label], jdx) => {
+                const btn = document.createElement('button');
+                btn.className = 'leaf';
+                btn.textContent = label;
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.leaf.active').forEach((e) => e.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderView(inst, key);
+                });
+                details.appendChild(btn);
+                if (isTarget && jdx === 0) {
+                    firstAction = () => btn.click();
+                } else if (!firstAction && idx === 0 && jdx === 0) {
+                    firstAction = () => btn.click();
+                }
+            });
+
+            tree.appendChild(details);
+        });
+        if (firstAction) firstAction();
+    </script>
+</body>
+</html>
+"""
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(html.replace("__AMI_DATA__", data_json), encoding="utf-8")
+
+
 def main() -> int:
     args = parse_args()
+
+    if args.instances_config:
+        config_path = Path(args.instances_config)
+        if not config_path.exists():
+            print(f"Instances config not found: {config_path}", file=sys.stderr)
+            return 2
+
+        try:
+            instance_cfgs = load_instances_config(config_path)
+        except Exception as exc:  # noqa: BLE001
+            print(f"Failed to parse instances config: {exc}", file=sys.stderr)
+            return 2
+
+        if not instance_cfgs:
+            print("Instances config is empty.", file=sys.stderr)
+            return 2
+
+        max_instances = max(1, int(args.max_instances))
+        selected_cfgs = instance_cfgs[:max_instances]
+        if len(instance_cfgs) > max_instances:
+            print(f"Limiting instances to first {max_instances} entries from config.")
+
+        instances: list[dict[str, Any]] = []
+        failures = 0
+        for cfg in selected_cfgs:
+            try:
+                instances.append(collect_instance_snapshot(cfg, args))
+            except Exception as exc:  # noqa: BLE001
+                failures += 1
+                name = str(cfg.get("name") or cfg.get("id") or cfg.get("url") or "instance")
+                instances.append(
+                    {
+                        "name": name,
+                        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+                        "url": str(cfg.get("url") or ""),
+                        "user": str(cfg.get("user") or ""),
+                        "driver_class": str(cfg.get("driver_class") or args.driver_class),
+                        "error": str(exc),
+                        "tables": [],
+                        "schemas": [],
+                        "relationships": [],
+                        "data_flow": [],
+                        "business_metrics": [],
+                        "external_mappings": {"centers": [], "replications": []},
+                        "trigger_details": [],
+                        "trigger_flows": [],
+                        "procedure_details": [],
+                        "timer_details": [],
+                    }
+                )
+
+        multi_payload = {
+            "project_name": "AMI Flow Viewer",
+            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+            "instance_count": len(instances),
+            "instances": instances,
+        }
+
+        output_multi_json = Path(args.output_multi_json)
+        output_multi_dashboard = Path(args.output_multi_dashboard)
+        write_json(output_multi_json, multi_payload)
+        write_multi_instance_dashboard(output_multi_dashboard, multi_payload)
+        print(f"Wrote AMI Flow Viewer JSON to {output_multi_json}")
+        print(f"Wrote AMI Flow Viewer dashboard to {output_multi_dashboard}")
+        if failures:
+            print(f"Completed with {failures} instance failures.")
+        return 0
+
     if not args.password:
         print(
             "Missing password. Pass --password or set AMI_DB_PASSWORD.",

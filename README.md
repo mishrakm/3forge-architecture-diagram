@@ -1,4 +1,4 @@
-# 3forge-architecture-diagram
+# AMI Flow Viewer
 
 ## DB Documentation Script
 
@@ -29,6 +29,39 @@ Outputs:
 - `docs/triggers.md` and `docs/triggers.json` (trigger definitions and input->output flow)
 - `docs/procedures.md` and `docs/procedures.json` (procedure inventory + definitions)
 - `docs/timers.md` and `docs/timers.json` (timer inventory, schedules, and definitions)
+
+## Multi-Instance AMI Flow Viewer
+
+Use a JSON config to aggregate many AMI instances (up to 20 by default) in one page with a left tree and right detail pane.
+
+Run:
+
+```bash
+cd /home/3forge/3forge-architecture-diagram
+AMI_DB_PASSWORD='pwadmin123' /home/3forge/3forge-architecture-diagram/.venv/bin/python scripts/document_tables.py \
+	--instances-config ./instances.json \
+	--output-multi-dashboard ./docs/ami_flow_viewer.html \
+	--output-multi-json ./docs/ami_flow_viewer.json
+```
+
+Open:
+- `http://localhost:8080/ami_flow_viewer.html`
+
+Config format (`instances.json`):
+
+```json
+{
+	"instances": [
+		{
+			"name": "prod-main",
+			"url": "jdbc:amisql:125.125.126.5:3280",
+			"user": "pwadmin",
+			"password_env": "AMI_DB_PASSWORD",
+			"jar_path": "./out.jar"
+		}
+	]
+}
+```
 
 ## Local CORS Server (for browser view)
 
