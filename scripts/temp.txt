@@ -1,0 +1,1 @@
+|NM       |AD    |UR             |US     |PW    |Password                |OP    |RelayId|PermittedOverrides|

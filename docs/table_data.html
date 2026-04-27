@@ -68,10 +68,12 @@
     const params = new URLSearchParams(window.location.search);
     const instance = params.get('instance') || '';
     const table = params.get('table') || '';
+    const liveBase = (params.get('liveBase') || localStorage.getItem('amiLiveBase') || window.location.origin).replace(/\/$/, '');
+    localStorage.setItem('amiLiveBase', liveBase);
 
     document.getElementById('pageTitle').textContent = table || 'Table Data Viewer';
     document.getElementById('pageSub').textContent = instance ? `Instance: ${instance}` : '';
-    document.getElementById('backLink').href = `/ami_flow_live.html?instance=${encodeURIComponent(instance)}&view=tables`;
+    document.getElementById('backLink').href = `${liveBase}/ami_flow_live.html?instance=${encodeURIComponent(instance)}&view=tables&liveBase=${encodeURIComponent(liveBase)}`;
 
     const output = document.getElementById('output');
     const metaBar = document.getElementById('metaBar');
@@ -182,7 +184,7 @@
     if (!instance || !table) {
       output.innerHTML = '<div class="error">Missing <code>instance</code> or <code>table</code> URL parameter.</div>';
     } else {
-      const url = `/api/instance/${encodeURIComponent(instance)}/table_data/${encodeURIComponent(table)}`;
+      const url = `${liveBase}/api/instance/${encodeURIComponent(instance)}/table_data/${encodeURIComponent(table)}`;
       const started = Date.now();
 
       fetch(url, { cache: 'no-store' })

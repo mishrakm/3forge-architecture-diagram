@@ -9,6 +9,7 @@ import json
 import os
 import re
 import socket
+import threading
 import time
 import math
 from dataclasses import dataclass
@@ -26,6 +27,7 @@ from document_tables import (
     derive_trigger_flows,
     fetch_procedure_details,
     fetch_show_centers,
+    fetch_show_datasources,
     fetch_show_procedures,
     fetch_show_replications,
     fetch_show_tables,
@@ -34,10 +36,12 @@ from document_tables import (
     fetch_table_schema,
     fetch_timer_details,
     fetch_trigger_details,
+    encrypt_instance_password,
     infer_business_metrics,
     infer_relationships,
     load_instances_config,
     resolve_instance_password,
+    write_instances_config,
 )
 
 ALLOWED_VIEWS = {
@@ -50,6 +54,7 @@ ALLOWED_VIEWS = {
     "data_flow",
     "business_metrics",
     "external_mappings",
+    "datasources",
 }
 
 ALLOWED_DESCRIBE_TYPES = {"table", "trigger", "procedure", "method", "timer"}
@@ -58,8 +63,10 @@ ALLOWED_DESCRIBE_TYPES = {"table", "trigger", "procedure", "method", "timer"}
 @dataclass
 class AppContext:
     docs_dir: Path
+    instances_path: Path
     instance_map: dict[str, dict[str, Any]]
     generator_args: argparse.Namespace
+    lock: threading.Lock
 
 
 def parse_args() -> argparse.Namespace:
@@ -255,6 +262,11 @@ def section_external_mappings(cursor: Any) -> dict[str, Any]:
     }
 
 
+def section_datasources(cursor: Any) -> dict[str, Any]:
+    rows = normalize_rows(fetch_show_datasources(cursor))
+    return {"rows": rows}
+
+
 def query_section(instance_cfg: dict[str, Any], args: argparse.Namespace, section: str) -> dict[str, Any]:
     if section not in ALLOWED_VIEWS:
         raise ValueError(f"Unsupported section: {section}")
@@ -285,8 +297,10 @@ def query_section(instance_cfg: dict[str, Any], args: argparse.Namespace, sectio
             payload = section_data_flow(cursor)
         elif section == "business_metrics":
             payload = section_business_metrics(cursor)
-        else:
+        elif section == "external_mappings":
             payload = section_external_mappings(cursor)
+        else:
+            payload = section_datasources(cursor)
 
         elapsed_ms = int((time.time() - started) * 1000)
         return {
@@ -421,6 +435,204 @@ def query_execute(
             connection.close()
 
 
+def _safe_filename(value: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "_", value.strip())
+    slug = slug.strip("._")
+    return slug or "instance"
+
+
+def _md_row(cells: list[Any]) -> str:
+    return "| " + " | ".join(str(c).replace("\n", " ") for c in cells) + " |"
+
+
+def _build_database_design_markdown(snapshot: dict[str, Any]) -> str:
+    lines: list[str] = []
+    name = str(snapshot.get("name") or "instance")
+    lines.append(f"# Database Design - {name}")
+    lines.append("")
+    lines.append(f"Generated (UTC): {snapshot.get('generated_at_utc', '-')}")
+    lines.append(f"JDBC URL: {snapshot.get('url', '-')}")
+    lines.append(f"User: {snapshot.get('user', '-')}")
+    lines.append("")
+
+    tables = snapshot.get("tables", []) or []
+    schemas = snapshot.get("schemas", []) or []
+    relationships = snapshot.get("relationships", []) or []
+    data_flow = snapshot.get("data_flow", []) or []
+    business_metrics = snapshot.get("business_metrics", []) or []
+    external = snapshot.get("external_mappings", {}) or {}
+    centers = external.get("centers", []) or []
+    replications = external.get("replications", []) or []
+    trigger_details = snapshot.get("trigger_details", []) or []
+    trigger_flows = snapshot.get("trigger_flows", []) or []
+    procedures = snapshot.get("procedure_details", []) or []
+    timers = snapshot.get("timer_details", []) or []
+
+    lines.append("## Overview")
+    lines.append("")
+    lines.append(_md_row(["Section", "Count"]))
+    lines.append(_md_row(["---", "---"]))
+    lines.append(_md_row(["Tables", len(tables)]))
+    lines.append(_md_row(["Schemas", len(schemas)]))
+    lines.append(_md_row(["Relationships", len(relationships)]))
+    lines.append(_md_row(["Data Flow Hints", len(data_flow)]))
+    lines.append(_md_row(["Business Metrics", len(business_metrics)]))
+    lines.append(_md_row(["Centers", len(centers)]))
+    lines.append(_md_row(["Replications", len(replications)]))
+    lines.append(_md_row(["Trigger Details", len(trigger_details)]))
+    lines.append(_md_row(["Trigger Flows", len(trigger_flows)]))
+    lines.append(_md_row(["Procedures", len(procedures)]))
+    lines.append(_md_row(["Timers", len(timers)]))
+    lines.append("")
+
+    lines.append("## Tables")
+    lines.append("")
+    lines.append(_md_row(["Table", "Owner", "Rows", "Columns", "Realtime"]))
+    lines.append(_md_row(["---", "---", "---", "---", "---"]))
+    for t in tables:
+        lines.append(_md_row([
+            t.get("name", "-"),
+            t.get("owner", "-"),
+            t.get("row_estimate", "-"),
+            t.get("column_count", "-"),
+            t.get("is_realtime", "-"),
+        ]))
+    lines.append("")
+
+    lines.append("## Schema Catalog")
+    lines.append("")
+    for schema in schemas:
+        table_name = schema.get("table", "-")
+        lines.append(f"### {table_name}")
+        lines.append("")
+        lines.append(_md_row(["Column", "Type", "Nullable", "Index Mode"]))
+        lines.append(_md_row(["---", "---", "---", "---"]))
+        for col in (schema.get("columns", []) or []):
+            lines.append(_md_row([
+                col.get("name", "-"),
+                col.get("type", "-"),
+                col.get("nullable", "-"),
+                col.get("index_mode", "-"),
+            ]))
+        lines.append("")
+
+    lines.append("## Relationships")
+    lines.append("")
+    lines.append(_md_row(["Left Table", "Right Table", "Shared Keys", "Strength"]))
+    lines.append(_md_row(["---", "---", "---", "---"]))
+    for rel in relationships:
+        lines.append(_md_row([
+            rel.get("left_table", "-"),
+            rel.get("right_table", "-"),
+            ", ".join(rel.get("shared_keys", []) or []),
+            rel.get("strength", "-"),
+        ]))
+    lines.append("")
+
+    lines.append("## Data Flow")
+    lines.append("")
+    lines.append(_md_row(["Table", "Category", "Owner", "Realtime", "Upstream Hints"]))
+    lines.append(_md_row(["---", "---", "---", "---", "---"]))
+    for flow in data_flow:
+        lines.append(_md_row([
+            flow.get("table", "-"),
+            flow.get("category", "-"),
+            flow.get("owner", "-"),
+            flow.get("is_realtime", "-"),
+            ", ".join(flow.get("upstream_hints", []) or []),
+        ]))
+    lines.append("")
+
+    lines.append("## Business Metrics")
+    lines.append("")
+    lines.append(_md_row(["Table", "Metric", "Formula Hint"]))
+    lines.append(_md_row(["---", "---", "---"]))
+    for metric in business_metrics:
+        for hint in (metric.get("suggested_metrics", []) or []):
+            lines.append(_md_row([
+                metric.get("table", "-"),
+                hint.get("metric", "-"),
+                hint.get("formula_hint", "-"),
+            ]))
+    lines.append("")
+
+    lines.append("## Replications")
+    lines.append("")
+    lines.append("### Centers")
+    lines.append("")
+    lines.append(_md_row(["Center", "Type", "Host", "Port", "Active", "Connected", "Connect Time"]))
+    lines.append(_md_row(["---", "---", "---", "---", "---", "---", "---"]))
+    for c in centers:
+        row = list(c) + ["-"] * 7
+        lines.append(_md_row([row[0], row[1], row[2], row[3], row[4], row[5], row[6]]))
+    lines.append("")
+
+    lines.append("### Replications")
+    lines.append("")
+    lines.append(_md_row(["Replication", "Center", "Table", "Type", "State", "Errors", "Direction", "Enabled"]))
+    lines.append(_md_row(["---", "---", "---", "---", "---", "---", "---", "---"]))
+    for r in replications:
+        row = list(r) + ["-"] * 8
+        lines.append(_md_row([row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]]))
+    lines.append("")
+
+    lines.append("## Trigger Flow")
+    lines.append("")
+    lines.append(_md_row(["Trigger", "Type", "Inputs", "Output", "Enabled", "Priority"]))
+    lines.append(_md_row(["---", "---", "---", "---", "---", "---"]))
+    for trg in trigger_flows:
+        lines.append(_md_row([
+            trg.get("trigger", "-"),
+            trg.get("type", "-"),
+            ", ".join(trg.get("input_tables", []) or []),
+            trg.get("output_table", "-"),
+            trg.get("enabled", "-"),
+            trg.get("priority", "-"),
+        ]))
+    lines.append("")
+
+    lines.append("## Procedures")
+    lines.append("")
+    lines.append(_md_row(["Name", "Type", "Return Type", "Owner", "Arguments"]))
+    lines.append(_md_row(["---", "---", "---", "---", "---"]))
+    for p in procedures:
+        lines.append(_md_row([
+            p.get("name", "-"),
+            p.get("procedure_type", "-"),
+            p.get("return_type", "-"),
+            p.get("owner", "-"),
+            p.get("arguments", "-"),
+        ]))
+    lines.append("")
+
+    lines.append("## Timers")
+    lines.append("")
+    lines.append(_md_row(["Name", "Type", "Priority", "Schedule", "Enabled", "Next Run"]))
+    lines.append(_md_row(["---", "---", "---", "---", "---", "---"]))
+    for t in timers:
+        lines.append(_md_row([
+            t.get("name", "-"),
+            t.get("timer_type", "-"),
+            t.get("priority", "-"),
+            t.get("schedule", "-"),
+            t.get("enabled", "-"),
+            t.get("next_run_time", "-"),
+        ]))
+    lines.append("")
+
+    return "\n".join(lines) + "\n"
+
+
+def query_database_design_markdown(
+    instance_cfg: dict[str, Any],
+    args: argparse.Namespace,
+) -> tuple[str, str]:
+    snapshot = collect_instance_snapshot(instance_cfg, args)
+    instance_name = str(snapshot.get("name") or instance_cfg.get("name") or "instance")
+    filename = f"database_design_{_safe_filename(instance_name)}.md"
+    return filename, _build_database_design_markdown(snapshot)
+
+
 def query_drop(
     instance_cfg: dict[str, Any],
     args: argparse.Namespace,
@@ -489,6 +701,110 @@ def query_describe(
             connection.close()
 
 
+INSTANCE_EDITABLE_FIELDS = {
+    "name",
+    "app_code",
+    "mode",
+    "center_id",
+    "port",
+    "url",
+    "user",
+    "jar_path",
+    "adapter",
+    "driver_class",
+    "telnet_host",
+    "telnet_port",
+    "telnet_login_command",
+    "telnet_prompt",
+    "java_home",
+}
+
+
+def _public_instance_config(cfg: dict[str, Any]) -> dict[str, Any]:
+    out = {k: v for k, v in cfg.items() if not str(k).startswith("_") and k not in {"password", "password_encrypted", "password_env"}}
+    out["has_password"] = bool(cfg.get("password") or cfg.get("password_encrypted") or cfg.get("password_env"))
+    out["password_storage"] = (
+        "encrypted" if cfg.get("password_encrypted") else
+        "env" if cfg.get("password_env") else
+        "plain" if cfg.get("password") else
+        "none"
+    )
+    return out
+
+
+def _reload_instances(app: AppContext) -> list[dict[str, Any]]:
+    instances = load_instances_config(app.instances_path)
+    app.instance_map = build_instance_map(instances)
+    return instances
+
+
+def _sanitize_instance_payload(payload: dict[str, Any], existing: dict[str, Any] | None, config_path: Path) -> dict[str, Any]:
+    name = str(payload.get("name") or (existing or {}).get("name") or "").strip()
+    if not name:
+        raise ValueError("Instance name is required")
+
+    entry: dict[str, Any] = {}
+    for field in INSTANCE_EDITABLE_FIELDS:
+        candidate = payload[field] if field in payload else (existing or {}).get(field)
+        if candidate in (None, ""):
+            continue
+        if field in {"port", "telnet_port"}:
+            entry[field] = int(candidate)
+        else:
+            entry[field] = str(candidate) if isinstance(candidate, Path) else candidate
+
+    entry["name"] = name
+
+    password = payload.get("password")
+    if isinstance(password, str) and password.strip():
+        entry["password_encrypted"] = encrypt_instance_password(password.strip(), config_path)
+    elif existing and existing.get("password_encrypted"):
+        entry["password_encrypted"] = existing["password_encrypted"]
+    elif existing and existing.get("password_env"):
+        entry["password_env"] = existing["password_env"]
+    elif existing and existing.get("password"):
+        entry["password"] = existing["password"]
+
+    return entry
+
+
+def _save_instance_config(app: AppContext, payload: dict[str, Any]) -> dict[str, Any]:
+    with app.lock:
+        instances = load_instances_config(app.instances_path)
+        by_name = {str(item.get("name") or "").strip().lower(): item for item in instances}
+        existing = by_name.get(str(payload.get("name") or "").strip().lower())
+        entry = _sanitize_instance_payload(payload, existing, app.instances_path)
+
+        updated = []
+        replaced = False
+        for item in instances:
+            item_name = str(item.get("name") or "").strip().lower()
+            if item_name == entry["name"].strip().lower():
+                updated.append(entry)
+                replaced = True
+            else:
+                updated.append(item)
+        if not replaced:
+            updated.append(entry)
+
+        write_instances_config(app.instances_path, updated)
+        _reload_instances(app)
+        return _public_instance_config(build_instance_map([entry])[entry["name"].strip().lower()])
+
+
+def _delete_instance_config(app: AppContext, instance_name: str) -> None:
+    target = instance_name.strip().lower()
+    if not target:
+        raise ValueError("Instance name is required")
+    with app.lock:
+        instances = load_instances_config(app.instances_path)
+        remaining = [item for item in instances if str(item.get("name") or "").strip().lower() != target]
+        if len(remaining) == len(instances):
+            raise ValueError(f"Unknown instance: {instance_name}")
+        write_instances_config(app.instances_path, remaining)
+        _reload_instances(app)
+
+
 class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
     """Serve static files and live JSON endpoints."""
 
@@ -496,7 +812,7 @@ class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def end_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         super().end_headers()
 
@@ -519,6 +835,14 @@ class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(405)
         self.end_headers()
 
+    def do_DELETE(self) -> None:  # noqa: N802
+        parsed = urlparse(self.path)
+        if parsed.path.startswith("/api/"):
+            self.handle_api_delete(parsed.path)
+            return
+        self.send_response(405)
+        self.end_headers()
+
     def _read_json_body(self) -> dict[str, Any]:
         length_header = self.headers.get("Content-Length") or "0"
         try:
@@ -535,6 +859,12 @@ class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_api_post(self, path: str) -> None:
         try:
+            if path == "/api/instances/config":
+                payload = self._read_json_body()
+                result = _save_instance_config(self.app, payload)
+                self.write_json(200, {"saved": True, "instance": result})
+                return
+
             prefix = "/api/instance/"
             if path.startswith(prefix):
                 rest = path[len(prefix):]
@@ -564,10 +894,27 @@ class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as exc:  # noqa: BLE001
             self.write_json(500, {"error": str(exc)})
 
+    def handle_api_delete(self, path: str) -> None:
+        try:
+            prefix = "/api/instances/config/"
+            if path.startswith(prefix):
+                instance_name = unquote(path[len(prefix):]).strip()
+                _delete_instance_config(self.app, instance_name)
+                self.write_json(200, {"deleted": True, "name": instance_name})
+                return
+            self.write_json(404, {"error": "Unknown API endpoint"})
+        except Exception as exc:  # noqa: BLE001
+            self.write_json(500, {"error": str(exc)})
+
     def handle_api(self, path: str) -> None:
         try:
             if path == "/api/health":
                 self.write_json(200, {"status": "ok"})
+                return
+
+            if path == "/api/instances/config":
+                rows = [_public_instance_config(cfg) for _, cfg in sorted(self.app.instance_map.items())]
+                self.write_json(200, {"instances": rows})
                 return
 
             if path == "/api/instances":
@@ -609,6 +956,17 @@ class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
                     self.write_json(200, result)
                     return
 
+                # /api/instance/<name>/database_design
+                if len(parts) == 2 and parts[1] == "database_design":
+                    instance_name, _ = parts
+                    cfg = self.app.instance_map.get(instance_name.lower())
+                    if cfg is None:
+                        self.write_json(404, {"error": f"Unknown instance: {instance_name}"})
+                        return
+                    filename, markdown = query_database_design_markdown(cfg, self.app.generator_args)
+                    self.write_text(200, markdown, "text/markdown; charset=utf-8", filename=filename)
+                    return
+
                 if len(parts) != 2:
                     self.write_json(400, {"error": "Expected /api/instance/<name>/<section>"})
                     return
@@ -629,6 +987,16 @@ class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
         raw = json.dumps(sanitize_for_json(payload), ensure_ascii=True, allow_nan=False).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def write_text(self, code: int, text: str, content_type: str, filename: str | None = None) -> None:
+        raw = text.encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", content_type)
+        if filename:
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
         self.send_header("Content-Length", str(len(raw)))
         self.end_headers()
         self.wfile.write(raw)
@@ -681,8 +1049,10 @@ def main() -> int:
     )
     LiveRequestHandler.app = AppContext(
         docs_dir=docs_dir,
+        instances_path=instances_path,
         instance_map=instance_map,
         generator_args=generator_args,
+        lock=threading.Lock(),
     )
 
     with http.server.ThreadingHTTPServer((args.host, args.port), handler) as httpd:

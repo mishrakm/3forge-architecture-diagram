@@ -42,14 +42,17 @@
       padding: 14px;
     }
     .card h3 { margin: 0 0 8px; }
-    a {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 600;
-    }
-    a:hover { text-decoration: underline; }
     .muted { color: var(--muted); font-size: 13px; }
     ul { margin: 8px 0 0; padding-left: 18px; }
+    .inline-note { margin-top: 8px; color: #d8eef7; font-size: 12px; }
+    .pill {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid #d8eef7;
+      color: #d8eef7;
+      font-size: 12px;
+    }
     @media (max-width: 900px) {
       .grid { grid-template-columns: 1fr; }
     }
@@ -59,153 +62,71 @@
   <div class="wrap">
     <section class="hero">
       <h1>AMI Flow Viewer Portal</h1>
-      <p>Start here to browse generated DB behavior docs.</p>
+      <p>Index has been intentionally simplified.</p>
+      <p class="inline-note">Static hyperlink navigation is currently disabled on this page.</p>
+      <p><span class="pill">No Hyperlinks Mode</span></p>
     </section>
 
     <section class="grid">
       <article class="card">
         <h3>Live Explorer</h3>
-        <p class="muted">On-click real-time queries against AMI (requires live API server).</p>
+        <p class="muted">Use the live viewer page directly (link intentionally removed).</p>
         <ul>
-          <li><a href="ami_flow_live.html">Open AMI Live Viewer</a></li>
+          <li>AMI Live Viewer</li>
+          <li>Instances Manager</li>
         </ul>
       </article>
 
       <article class="card">
         <h3>Unified Explorer</h3>
-        <p class="muted">Multi-instance AMI Flow Viewer with left tree and right details pane.</p>
+        <p class="muted">Snapshot and multi-instance pages remain available in docs.</p>
         <ul>
-          <li><a href="ami_flow_viewer.html">Open AMI Flow Viewer</a></li>
+          <li>AMI Flow Viewer</li>
+          <li>Tables Dashboard</li>
         </ul>
       </article>
 
       <article class="card">
         <h3>Instances (Snapshot)</h3>
-        <p class="muted">Quick links into specific instances from the latest multi-instance snapshot.</p>
-        <ul id="instanceLinks">
-          <li class="muted">Run multi-instance generation to populate this list.</li>
+        <p class="muted">Snapshot instance quick-links are disabled on index.</p>
+        <ul>
+          <li>Run generation to refresh snapshot files.</li>
         </ul>
       </article>
 
       <article class="card">
         <h3>Instances (Live)</h3>
-        <p class="muted">Quick links for live on-click queries via /api/instances.</p>
-        <ul id="liveInstanceLinks">
-          <li class="muted">Start live_view_server.py to populate this list.</li>
+        <p class="muted">Live instance quick-links are disabled on index.</p>
+        <ul>
+          <li>Use instances manager or live viewer directly.</li>
         </ul>
       </article>
 
       <article class="card">
-        <h3>Table Inventory</h3>
+        <h3>Manage Instances</h3>
+        <p class="muted">Management UI remains available on its own page.</p>
         <ul>
-          <li><a href="tables.md">tables.md</a></li>
-          <li><a href="tables.json">tables.json</a></li>
+          <li>Add / Edit / Remove instances</li>
+          <li>Password encryption at rest</li>
+          <li>No direct controls on this index</li>
         </ul>
       </article>
 
       <article class="card">
-        <h3>Schema Catalog</h3>
+        <h3>Available Documents</h3>
         <ul>
-          <li><a href="schema_catalog.md">schema_catalog.md</a></li>
-          <li><a href="schema_catalog.json">schema_catalog.json</a></li>
-        </ul>
-      </article>
-
-      <article class="card">
-        <h3>Relationships</h3>
-        <ul>
-          <li><a href="relationships.md">relationships.md</a></li>
-          <li><a href="relationships.json">relationships.json</a></li>
-        </ul>
-      </article>
-
-      <article class="card">
-        <h3>Data Flow</h3>
-        <ul>
-          <li><a href="data_flow.md">data_flow.md</a></li>
-          <li><a href="data_flow.json">data_flow.json</a></li>
-        </ul>
-      </article>
-
-      <article class="card">
-        <h3>Business Metrics</h3>
-        <ul>
-          <li><a href="business_metrics.md">business_metrics.md</a></li>
-          <li><a href="business_metrics.json">business_metrics.json</a></li>
-        </ul>
-      </article>
-
-      <article class="card">
-        <h3>External Mappings</h3>
-        <ul>
-          <li><a href="external_mappings.md">external_mappings.md</a></li>
-          <li><a href="external_mappings.json">external_mappings.json</a></li>
-        </ul>
-      </article>
-
-      <article class="card">
-        <h3>Trigger Flow</h3>
-        <ul>
-          <li><a href="triggers.md">triggers.md</a></li>
-          <li><a href="triggers.json">triggers.json</a></li>
-        </ul>
-      </article>
-
-      <article class="card">
-        <h3>Procedures</h3>
-        <ul>
-          <li><a href="procedures.md">procedures.md</a></li>
-          <li><a href="procedures.json">procedures.json</a></li>
-        </ul>
-      </article>
-
-      <article class="card">
-        <h3>Timers</h3>
-        <ul>
-          <li><a href="timers.md">timers.md</a></li>
-          <li><a href="timers.json">timers.json</a></li>
+          <li>tables.md / tables.json</li>
+          <li>schema_catalog.md / schema_catalog.json</li>
+          <li>relationships.md / relationships.json</li>
+          <li>data_flow.md / data_flow.json</li>
+          <li>business_metrics.md / business_metrics.json</li>
+          <li>external_mappings.md / external_mappings.json</li>
+          <li>triggers.md / triggers.json</li>
+          <li>procedures.md / procedures.json</li>
+          <li>timers.md / timers.json</li>
         </ul>
       </article>
     </section>
   </div>
-  <script>
-    (async () => {
-      const list = document.getElementById('instanceLinks');
-      if (!list) return;
-      try {
-        const res = await fetch('ami_flow_viewer.json', { cache: 'no-store' });
-        if (!res.ok) return;
-        const payload = await res.json();
-        const instances = Array.isArray(payload.instances) ? payload.instances : [];
-        if (!instances.length) return;
-        list.innerHTML = instances.map((inst) => {
-          const name = String(inst.name || 'instance');
-          const href = 'ami_flow_viewer.html?instance=' + encodeURIComponent(name);
-          return '<li><a href="' + href + '">' + name + '</a></li>';
-        }).join('');
-      } catch (_) {
-        // Keep default text when snapshot file is unavailable.
-      }
-    })();
-
-    (async () => {
-      const list = document.getElementById('liveInstanceLinks');
-      if (!list) return;
-      try {
-        const res = await fetch('/api/instances', { cache: 'no-store' });
-        if (!res.ok) return;
-        const payload = await res.json();
-        const instances = Array.isArray(payload.instances) ? payload.instances : [];
-        if (!instances.length) return;
-        list.innerHTML = instances.map((inst) => {
-          const name = String(inst.name || 'instance');
-          const href = 'ami_flow_live.html?instance=' + encodeURIComponent(name) + '&view=overview';
-          return '<li><a href="' + href + '">' + name + '</a></li>';
-        }).join('');
-      } catch (_) {
-        // Keep default text when API is unavailable.
-      }
-    })();
-  </script>
 </body>
 </html>

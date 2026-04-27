@@ -4,10 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
+import hmac
 import itertools
 import json
 import os
 import re
+import secrets
 import socket
 import sys
 import time
@@ -482,6 +486,11 @@ def fetch_show_procedures(cursor: Any) -> list[tuple[Any, ...]]:
 def fetch_show_timers(cursor: Any) -> list[tuple[Any, ...]]:
     cursor.execute("show timers")
     return [r for r in cursor.fetchall() if r and len(r) > 0 and not str(r[0]).startswith("__")]
+
+
+def fetch_show_datasources(cursor: Any) -> list[tuple[Any, ...]]:
+    cursor.execute("show datasources")
+    return cursor.fetchall()
 
 
 def extract_trigger_use_option(text: str | None, key: str) -> str | None:
@@ -1855,13 +1864,95 @@ def load_instances_config(path: Path) -> list[dict[str, Any]]:
         for idx, item in enumerate(instances, start=1):
                 if not isinstance(item, dict):
                         raise ValueError(f"instance entry #{idx} must be an object")
-                out.append(item)
+                out.append({**item, "_config_path": str(path)})
         return out
+
+
+def write_instances_config(path: Path, instances: list[dict[str, Any]]) -> None:
+        cleaned: list[dict[str, Any]] = []
+        for item in instances:
+                entry = {k: v for k, v in item.items() if not str(k).startswith("_")}
+                cleaned.append(entry)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"instances": cleaned}, indent=2) + "\n", encoding="utf-8")
+
+
+def _instances_key_path(config_path: Path) -> Path:
+        return config_path.parent / ".instances.key"
+
+
+def _load_instances_secret(config_path: Path) -> bytes:
+        env_secret = os.getenv("AMI_INSTANCE_SECRET")
+        if env_secret:
+                return env_secret.encode("utf-8")
+
+        key_path = _instances_key_path(config_path)
+        if key_path.exists():
+                return key_path.read_text(encoding="utf-8").strip().encode("utf-8")
+
+        secret_text = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("ascii")
+        key_path.write_text(secret_text + "\n", encoding="utf-8")
+        try:
+                os.chmod(key_path, 0o600)
+        except OSError:
+                pass
+        return secret_text.encode("utf-8")
+
+
+def _xor_bytes(left: bytes, right: bytes) -> bytes:
+        return bytes(a ^ b for a, b in zip(left, right))
+
+
+def _derive_stream(secret: bytes, salt: bytes, nonce: bytes, size: int) -> bytes:
+        key = hashlib.pbkdf2_hmac("sha256", secret, salt, 120000, dklen=32)
+        out = bytearray()
+        counter = 0
+        while len(out) < size:
+                out.extend(hmac.new(key, nonce + counter.to_bytes(4, "big"), hashlib.sha256).digest())
+                counter += 1
+        return bytes(out[:size])
+
+
+def encrypt_instance_password(password: str, config_path: Path) -> str:
+        secret = _load_instances_secret(config_path)
+        salt = secrets.token_bytes(16)
+        nonce = secrets.token_bytes(16)
+        plain = password.encode("utf-8")
+        stream = _derive_stream(secret, salt, nonce, len(plain))
+        cipher = _xor_bytes(plain, stream)
+        mac_key = hashlib.pbkdf2_hmac("sha256", secret, salt + nonce, 120000, dklen=32)
+        mac = hmac.new(mac_key, salt + nonce + cipher, hashlib.sha256).digest()
+        packed = base64.urlsafe_b64encode(salt + nonce + cipher + mac).decode("ascii")
+        return f"enc:v1:{packed}"
+
+
+def decrypt_instance_password(ciphertext: str, config_path: Path) -> str:
+        if not ciphertext.startswith("enc:v1:"):
+                raise ValueError("Unsupported encrypted password format")
+        raw = base64.urlsafe_b64decode(ciphertext.split(":", 2)[2].encode("ascii"))
+        if len(raw) < 64:
+                raise ValueError("Encrypted password payload is malformed")
+        salt = raw[:16]
+        nonce = raw[16:32]
+        cipher = raw[32:-32]
+        mac = raw[-32:]
+        secret = _load_instances_secret(config_path)
+        mac_key = hashlib.pbkdf2_hmac("sha256", secret, salt + nonce, 120000, dklen=32)
+        expected_mac = hmac.new(mac_key, salt + nonce + cipher, hashlib.sha256).digest()
+        if not hmac.compare_digest(mac, expected_mac):
+                raise ValueError("Encrypted password verification failed")
+        stream = _derive_stream(secret, salt, nonce, len(cipher))
+        return _xor_bytes(cipher, stream).decode("utf-8")
 
 
 def resolve_instance_password(instance_cfg: dict[str, Any], fallback: str | None) -> str:
         if instance_cfg.get("password"):
                 return str(instance_cfg["password"])
+        if instance_cfg.get("password_encrypted"):
+            config_path_raw = instance_cfg.get("_config_path")
+            if not config_path_raw:
+                raise ValueError("Encrypted password is missing its config path context")
+            return decrypt_instance_password(str(instance_cfg["password_encrypted"]), Path(str(config_path_raw)))
         if instance_cfg.get("password_env"):
                 env_name = str(instance_cfg["password_env"])
                 env_value = os.getenv(env_name)

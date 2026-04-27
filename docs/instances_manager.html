@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AMI Instances Manager</title>
+  <style>
+    :root {
+      --bg: #f4f1eb;
+      --card: #ffffff;
+      --ink: #2a2722;
+      --muted: #6d665e;
+      --line: #e7dfd4;
+      --accent: #0e6f8a;
+      --danger: #a02828;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: var(--ink);
+      background: radial-gradient(900px 500px at 0% 0%, #d9edf780, transparent), var(--bg);
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .hero {
+      background: linear-gradient(130deg, #0e6f8a, #114a6f);
+      color: #fff;
+      border-radius: 14px;
+      padding: 18px;
+    }
+    .hero h1 { margin: 0 0 6px; }
+    .hero p { margin: 4px 0; }
+    .grid {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .status { margin-top: 8px; color: var(--muted); font-size: 13px; }
+    .ok { color: #1d6e37; }
+    .warn { color: #8a6a1c; }
+    .err { color: var(--danger); }
+    .form { display: grid; gap: 8px; }
+    .field { display: grid; gap: 4px; }
+    .field label { font-size: 11px; text-transform: uppercase; color: var(--muted); }
+    .hint { font-size: 11px; color: var(--muted); }
+    .field input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+    .field input.bad {
+      border-color: #cf8a8a;
+      background: #fff4f4;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .btn {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+    .btn.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn.danger {
+      border-color: var(--danger);
+      color: var(--danger);
+      background: #fff;
+    }
+    .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+    .name { font-weight: 700; }
+    .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .item-actions { display: flex; gap: 8px; }
+    .small { font-size: 12px; color: var(--muted); }
+    .error-box {
+      margin-top: 10px;
+      border: 1px solid #f0c9c9;
+      border-radius: 10px;
+      background: #fff3f3;
+      padding: 10px;
+    }
+    .error-box h4 { margin: 0 0 8px; color: #7f1f1f; }
+    .error-list {
+      margin: 0;
+      padding-left: 16px;
+      max-height: 180px;
+      overflow: auto;
+      font-size: 12px;
+      color: #6b2323;
+    }
+    .error-list li { margin: 0 0 6px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    @media (max-width: 960px) {
+      .grid { grid-template-columns: 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>Instances Manager</h1>
+      <p>Add, edit, and remove AMI instances used by the live viewer.</p>
+      <p id="baseNote" class="small"></p>
+      <p><a id="liveLink" href="#">Open Live Viewer</a></p>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h3>Instance Form</h3>
+        <p class="small">Passwords are stored encrypted in instances.json.</p>
+        <form id="instanceForm" class="form">
+          <div class="form-grid">
+            <div class="field">
+              <label for="name" title="Unique display name used in the live viewer tree.">Name</label>
+              <input id="name" name="name" required title="Example: Main app">
+              <div class="hint">Unique instance name shown in UI.</div>
+            </div>
+            <div class="field">
+              <label for="url" title="Full JDBC URL for this AMI instance.">JDBC URL</label>
+              <input id="url" name="url" placeholder="jdbc:amisql:host:port" required title="Example: jdbc:amisql:125.125.126.5:2280">
+              <div class="hint">Must start with jdbc:amisql:</div>
+            </div>
+            <div class="field">
+              <label for="user" title="Database user for this instance.">User</label>
+              <input id="user" name="user" value="pwadmin" required title="AMI DB username">
+            </div>
+            <div class="field">
+              <label for="password" title="Saved encrypted. Leave blank to keep current password when editing.">Password</label>
+              <input id="password" name="password" type="password" placeholder="Leave blank to keep current" title="Password is encrypted at rest">
+              <div class="hint">Encrypted before writing to instances.json.</div>
+            </div>
+            <div class="field">
+              <label for="jar_path" title="Path to JDBC driver jar.">Jar Path</label>
+              <input id="jar_path" name="jar_path" value="./out.jar" title="Default: ./out.jar">
+            </div>
+            <div class="field">
+              <label for="port" title="Optional AMI port metadata for reference.">Port</label>
+              <input id="port" name="port" type="number" min="1" title="Optional integer port">
+            </div>
+            <div class="field"><label for="app_code" title="Optional internal app code.">App Code</label><input id="app_code" name="app_code"></div>
+            <div class="field"><label for="mode" title="Optional mode tag such as center+relay.">Mode</label><input id="mode" name="mode"></div>
+            <div class="field"><label for="center_id" title="Optional center identifier.">Center ID</label><input id="center_id" name="center_id"></div>
+          </div>
+          <div class="actions">
+            <button id="resetBtn" class="btn" type="reset">Reset</button>
+            <button class="btn primary" type="submit">Save Instance</button>
+          </div>
+        </form>
+        <p id="status" class="status">Loading...</p>
+        <div class="error-box">
+          <h4>Errors Encountered</h4>
+          <ol id="errorList" class="error-list">
+            <li>No errors yet.</li>
+          </ol>
+        </div>
+      </article>
+
+      <article class="card">
+        <h3>Configured Instances</h3>
+        <ul id="instances" class="list">
+          <li class="small">Loading instances...</li>
+        </ul>
+      </article>
+    </section>
+  </div>
+
+  <script>
+    const qp = new URLSearchParams(window.location.search);
+    const fromQuery = qp.get("liveBase");
+    const stored = localStorage.getItem("amiLiveBase");
+    const fallback = (() => {
+      const u = new URL(window.location.href);
+      u.port = "8092";
+      return u.origin;
+    })();
+    let liveBase = (fromQuery || stored || fallback).replace(/\/$/, "");
+
+    const baseNote = document.getElementById("baseNote");
+    const liveLink = document.getElementById("liveLink");
+    const setLiveBaseUi = () => {
+      baseNote.textContent = "Live API base: " + liveBase;
+      liveLink.href = liveBase + "/ami_flow_live.html";
+    };
+    setLiveBaseUi();
+
+    const statusEl = document.getElementById("status");
+    const errorListEl = document.getElementById("errorList");
+    const listEl = document.getElementById("instances");
+    const form = document.getElementById("instanceForm");
+    const resetBtn = document.getElementById("resetBtn");
+
+    const fields = {
+      name: document.getElementById("name"),
+      url: document.getElementById("url"),
+      user: document.getElementById("user"),
+      password: document.getElementById("password"),
+      jar_path: document.getElementById("jar_path"),
+      port: document.getElementById("port"),
+      app_code: document.getElementById("app_code"),
+      mode: document.getElementById("mode"),
+      center_id: document.getElementById("center_id")
+    };
+
+    const esc = (v) => String(v)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+    const timestamp = () => new Date().toLocaleTimeString();
+    const pushError = (action, message) => {
+      const msg = String(message || "Unknown error");
+      const existing = errorListEl.querySelector("li")?.textContent || "";
+      if (existing === "No errors yet.") errorListEl.innerHTML = "";
+      const li = document.createElement("li");
+      li.textContent = `[${timestamp()}] ${action}: ${msg}`;
+      errorListEl.prepend(li);
+      while (errorListEl.children.length > 12) {
+        errorListEl.removeChild(errorListEl.lastChild);
+      }
+    };
+
+    const setStatus = (text, kind = "") => {
+      statusEl.textContent = text;
+      statusEl.className = "status" + (kind ? ` ${kind}` : "");
+    };
+
+    const probeBase = async (base) => {
+      try {
+        const res = await fetch(base + "/api/instances", { cache: "no-store" });
+        if (!res.ok) return false;
+        const payload = await res.json();
+        return Array.isArray(payload.instances);
+      } catch (_) {
+        return false;
+      }
+    };
+
+    const ensureLiveBase = async () => {
+      const current = new URL(window.location.href);
+      const candidates = [];
+      const push = (v) => {
+        const s = String(v || "").replace(/\/$/, "");
+        if (s && !candidates.includes(s)) candidates.push(s);
+      };
+      push(fromQuery);
+      push(stored);
+      push(liveBase);
+      push(current.origin);
+      const p18092 = new URL(current.href);
+      p18092.port = "18092";
+      push(p18092.origin);
+      const p8092 = new URL(current.href);
+      p8092.port = "8092";
+      push(p8092.origin);
+
+      for (const candidate of candidates) {
+        if (await probeBase(candidate)) {
+          liveBase = candidate;
+          localStorage.setItem("amiLiveBase", liveBase);
+          setLiveBaseUi();
+          return;
+        }
+      }
+      throw new Error("Could not detect a reachable live API. Start live_view_server.py and pass ?liveBase=http://host:port in URL if needed.");
+    };
+
+    const apiFetch = async (path, options = undefined) => {
+      try {
+        return await fetch(liveBase + path, options);
+      } catch (_) {
+        throw new Error("Failed to fetch from " + liveBase + path + ". Check that live API is running and liveBase is correct.");
+      }
+    };
+
+    const parseApiResponse = async (res) => {
+      const contentType = String(res.headers.get("content-type") || "").toLowerCase();
+      const raw = await res.text();
+      if (!contentType.includes("application/json")) {
+        throw new Error(`API did not return JSON (HTTP ${res.status}).`);
+      }
+      let payload;
+      try {
+        payload = JSON.parse(raw);
+      } catch (_) {
+        throw new Error(`Malformed JSON from API (HTTP ${res.status}).`);
+      }
+      return payload;
+    };
+
+    const clearFieldErrors = () => {
+      Object.values(fields).forEach((el) => el.classList.remove("bad"));
+    };
+
+    const validateForm = () => {
+      clearFieldErrors();
+      const errors = [];
+      const name = String(fields.name.value || "").trim();
+      const url = String(fields.url.value || "").trim();
+      const port = String(fields.port.value || "").trim();
+
+      if (!name) {
+        fields.name.classList.add("bad");
+        errors.push("Name is required.");
+      }
+      if (!url) {
+        fields.url.classList.add("bad");
+        errors.push("JDBC URL is required.");
+      } else if (!/^jdbc:amisql:/i.test(url)) {
+        fields.url.classList.add("bad");
+        errors.push("JDBC URL must start with jdbc:amisql:.");
+      }
+      if (port && (!/^\d+$/.test(port) || Number(port) <= 0)) {
+        fields.port.classList.add("bad");
+        errors.push("Port must be a positive integer.");
+      }
+      return errors;
+    };
+
+    const readForm = () => {
+      const out = {};
+      Object.entries(fields).forEach(([key, el]) => {
+        const value = String(el.value || "").trim();
+        if (value) out[key] = value;
+      });
+      return out;
+    };
+
+    const fillForm = (inst) => {
+      fields.name.value = inst.name || "";
+      fields.url.value = inst.url || "";
+      fields.user.value = inst.user || "pwadmin";
+      fields.password.value = "";
+      fields.jar_path.value = inst.jar_path || "./out.jar";
+      fields.port.value = inst.port || "";
+      fields.app_code.value = inst.app_code || "";
+      fields.mode.value = inst.mode || "";
+      fields.center_id.value = inst.center_id || "";
+      fields.name.focus();
+    };
+
+    const renderList = (instances) => {
+      if (!instances.length) {
+        listEl.innerHTML = '<li class="small">No instances configured.</li>';
+        return;
+      }
+      listEl.innerHTML = instances.map((inst) => {
+        const name = String(inst.name || "instance");
+        const encName = encodeURIComponent(name);
+        const url = String(inst.url || "-");
+        const storage = String(inst.password_storage || "none");
+        return '<li class="item">' +
+          '<div><div class="name">' + esc(name) + '</div><div class="meta">' + esc(url) + ' | password: ' + esc(storage) + '</div></div>' +
+          '<div class="item-actions">' +
+            '<button class="btn" type="button" data-edit="' + encName + '">Edit</button>' +
+            '<button class="btn danger" type="button" data-delete="' + encName + '">Remove</button>' +
+          '</div>' +
+        '</li>';
+      }).join("");
+
+      listEl.querySelectorAll("[data-edit]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const name = decodeURIComponent(btn.getAttribute("data-edit") || "");
+          const match = instances.find((x) => String(x.name || "") === name);
+          if (match) fillForm(match);
+        });
+      });
+
+      listEl.querySelectorAll("[data-delete]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const name = decodeURIComponent(btn.getAttribute("data-delete") || "");
+          if (!confirm('Remove instance "' + name + '"?')) return;
+          try {
+            const res = await apiFetch("/api/instances/config/" + encodeURIComponent(name), { method: "DELETE" });
+            const payload = await parseApiResponse(res);
+            if (!res.ok) throw new Error(payload.error || "Delete failed");
+            setStatus('Removed instance "' + name + '".', "ok");
+            await loadInstances();
+          } catch (err) {
+            const msg = err && err.message ? err.message : String(err);
+            pushError("Remove instance", msg);
+            setStatus(msg, "err");
+          }
+        });
+      });
+    };
+
+    const loadInstances = async () => {
+      try {
+        const res = await apiFetch("/api/instances/config", { cache: "no-store" });
+        const payload = await parseApiResponse(res);
+        if (!res.ok) throw new Error(payload.error || "Failed to load instances");
+        const instances = Array.isArray(payload.instances) ? payload.instances : [];
+        renderList(instances);
+        setStatus("Loaded " + instances.length + " configured instance(s).", "ok");
+      } catch (err) {
+        listEl.innerHTML = '<li class="small">Live config API unavailable.</li>';
+        const msg = err && err.message ? err.message : String(err);
+        pushError("Load instances", msg);
+        setStatus(msg, "err");
+      }
+    };
+
+    resetBtn.addEventListener("click", () => {
+      fields.user.value = "pwadmin";
+      fields.jar_path.value = "./out.jar";
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        const formErrors = validateForm();
+        if (formErrors.length) {
+          const msg = formErrors.join(" ");
+          pushError("Validation", msg);
+          setStatus(msg, "warn");
+          return;
+        }
+        const payload = readForm();
+        const res = await apiFetch("/api/instances/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await parseApiResponse(res);
+        if (!res.ok) throw new Error(data.error || "Save failed");
+        setStatus('Saved instance "' + String((data.instance || {}).name || payload.name || "") + '".', "ok");
+        form.reset();
+        fields.user.value = "pwadmin";
+        fields.jar_path.value = "./out.jar";
+        clearFieldErrors();
+        await loadInstances();
+      } catch (err) {
+        const msg = err && err.message ? err.message : String(err);
+        pushError("Save instance", msg);
+        setStatus(msg, "err");
+      }
+    });
+
+    (async () => {
+      try {
+        await ensureLiveBase();
+      } catch (err) {
+        const msg = err && err.message ? err.message : String(err);
+        pushError("Live API", msg);
+        setStatus(msg, "err");
+      }
+      await loadInstances();
+    })();
+  </script>
+</body>
+</html>
