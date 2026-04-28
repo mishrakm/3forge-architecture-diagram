@@ -1,0 +1,32 @@
+nohup: ignoring input
+127.0.0.1 - - [28/Apr/2026 08:48:19] "GET /api/health HTTP/1.1" 200 -
+192.192.100.71 - - [28/Apr/2026 08:49:05] "GET /ami_flow_live.html?instance=TradeBook&view=tables&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 304 -
+192.192.100.71 - - [28/Apr/2026 08:49:05] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.71 - - [28/Apr/2026 08:49:05] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 8:49:05 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:3280
+192.192.100.71 - - [28/Apr/2026 08:49:05] "GET /api/instance/TradeBook/tables HTTP/1.1" 200 -
+192.192.100.71 - - [28/Apr/2026 08:49:17] "GET /edit_table.html?instance=TradeBook&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 200 -
+192.192.100.71 - - [28/Apr/2026 08:49:17] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.71 - - [28/Apr/2026 08:49:17] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 8:49:17 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:3280
+192.192.100.71 - - [28/Apr/2026 08:49:17] "GET /api/instance/TradeBook/tables HTTP/1.1" 200 -
+nohup: ignoring input
+Traceback (most recent call last):
+  File "/home/3forge/3forge-architecture-diagram/scripts/live_view_server.py", line 1118, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/home/3forge/3forge-architecture-diagram/scripts/live_view_server.py", line 1097, in main
+    with http.server.ThreadingHTTPServer((args.host, args.port), handler) as httpd:
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.13/socketserver.py", line 457, in __init__
+    self.server_bind()
+    ~~~~~~~~~~~~~~~~^^
+  File "/usr/lib64/python3.13/http/server.py", line 136, in server_bind
+    socketserver.TCPServer.server_bind(self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/usr/lib64/python3.13/socketserver.py", line 478, in server_bind
+    self.socket.bind(self.server_address)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 98] Address already in use

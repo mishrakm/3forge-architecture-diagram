@@ -1,0 +1,1007 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Edit Table Structure</title>
+  <style>
+    :root {
+      --bg: #eef3ea;
+      --card: #ffffff;
+      --ink: #1e2c26;
+      --muted: #62756b;
+      --line: #d2ddd5;
+      --brand: #176b4d;
+      --accent: #ad5c2a;
+      --good: #1f7a4f;
+      --bad: #b42318;
+      --shadow: 0 16px 32px rgba(30, 44, 38, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top left, #f7fff9, var(--bg) 46%, #e3ece5 100%);
+    }
+    a { color: var(--brand); }
+    .page {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 26px;
+    }
+    .hero {
+      background: color-mix(in srgb, var(--card) 92%, #f7fff9);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
+      gap: 18px;
+      margin-bottom: 20px;
+    }
+    .eyebrow {
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .11em;
+      font-size: 12px;
+      font-weight: 700;
+      margin: 0 0 8px;
+    }
+    .hero h1 {
+      margin: 0 0 8px;
+      font-family: "IBM Plex Serif", Georgia, serif;
+      font-size: 36px;
+      line-height: 1.08;
+    }
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 62ch;
+      line-height: 1.5;
+    }
+    .hero-links {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-content: start;
+    }
+    .btn, button, select, input, textarea { font: inherit; }
+    .btn {
+      display: inline-block;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--ink);
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .btn.primary {
+      background: var(--brand);
+      color: #fff;
+      border-color: var(--brand);
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .stack { display: grid; gap: 18px; min-width: 0; }
+    .card {
+      background: color-mix(in srgb, var(--card) 96%, #f4faf6);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+      min-width: 0;
+    }
+    .card h2 { margin: 0 0 10px; font-size: 18px; }
+    .note {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .col-3 { grid-column: span 3; }
+    .col-4 { grid-column: span 4; }
+    .col-6 { grid-column: span 6; }
+    .col-12 { grid-column: span 12; }
+    .field { display: grid; gap: 6px; }
+    .field label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--ink);
+      padding: 10px 12px;
+    }
+    .field textarea {
+      min-height: 96px;
+      resize: vertical;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .inline-actions {
+      display: flex;
+      align-items: end;
+      gap: 8px;
+      min-width: 0;
+    }
+    .check {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    pre.preview {
+      margin: 0;
+      border-radius: 14px;
+      background: #1d2327;
+      color: #f3f6f8;
+      padding: 14px;
+      min-height: 180px;
+      overflow: auto;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .status {
+      margin: 0;
+      border: 1px solid #edceaa;
+      background: #fff4e6;
+      color: #8a4b08;
+      border-radius: 12px;
+      padding: 11px 13px;
+      min-height: 46px;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .status.good {
+      border-color: #a5d6ba;
+      background: #ebfff3;
+      color: var(--good);
+    }
+    .status.bad {
+      border-color: #efb3b3;
+      background: #fff1f1;
+      color: var(--bad);
+    }
+    .row-actions {
+      margin-top: 14px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .result-meta {
+      margin-top: 14px;
+      display: grid;
+      gap: 8px;
+      font-size: 14px;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .picker-wrap {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfefc;
+      overflow: hidden;
+    }
+    .picker-head,
+    .picker-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) minmax(0, .7fr) minmax(0, .9fr);
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+    }
+    .picker-head {
+      border-bottom: 1px solid var(--line);
+      background: #f3faf6;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .picker-list {
+      max-height: 260px;
+      overflow: auto;
+    }
+    .picker-row {
+      border-bottom: 1px solid #edf3ee;
+      font-size: 14px;
+    }
+    .picker-row:last-child { border-bottom: 0; }
+    .picker-row .pick-name { font-weight: 600; overflow-wrap: anywhere; word-break: break-word; }
+    .picker-row .pick-type { color: var(--muted); overflow-wrap: anywhere; word-break: break-word; }
+    .picker-row .pick-newtype { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 7px 8px; background: #fff; }
+    .hidden { display: none !important; }
+    .tiny { color: var(--muted); font-size: 12px; }
+    @media (max-width: 1080px) {
+      .hero, .layout { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 760px) {
+      .page { padding: 14px; }
+      .hero h1 { font-size: 30px; }
+      .grid { grid-template-columns: 1fr; }
+      .col-3, .col-4, .col-6, .col-12 { grid-column: span 1; }
+      .inline-actions { align-items: stretch; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Schema Operations</p>
+        <h1>Edit Table Structure</h1>
+        <p>Build and run ALTER TABLE statements against any instance. Pick a table, choose an operation, review SQL preview, then execute through the live query API.</p>
+      </div>
+      <div>
+        <p class="eyebrow">Links</p>
+        <div class="hero-links">
+          <a class="btn" id="backToViewer" href="#">Back to Viewer</a>
+          <a class="btn" id="openCreateTable" href="#">Open Create Table</a>
+          <a class="btn" href="https://doc.3forge.com/reference/ami_sql/" target="_blank" rel="noreferrer">AMI SQL Reference</a>
+        </div>
+        <p class="tiny" id="baseNote"></p>
+      </div>
+    </section>
+
+    <div class="layout">
+      <div class="stack">
+        <section class="card">
+          <h2>Target</h2>
+          <div class="grid">
+            <div class="field col-4">
+              <label for="instanceSelect">Instance</label>
+              <select id="instanceSelect"></select>
+            </div>
+            <div class="field col-4">
+              <label for="tableSelect">Table</label>
+              <select id="tableSelect"></select>
+            </div>
+            <div class="field col-4 inline-actions">
+              <button id="refreshTablesBtn" type="button" class="btn">Reload Tables</button>
+            </div>
+            <div class="field col-12">
+              <label for="tableNameInput">Table Name Override</label>
+              <input id="tableNameInput" type="text" placeholder="Optional; defaults to selected table">
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Operation</h2>
+          <div class="grid">
+            <div class="field col-4">
+              <label for="operationSelect">Change Type</label>
+              <select id="operationSelect">
+                <option value="ADD_COLUMN">Add Column</option>
+                <option value="DROP_COLUMN">Drop Column</option>
+                <option value="RENAME_COLUMN">Rename Column</option>
+                <option value="CHANGE_COLUMN_TYPE">Change Column Type</option>
+                <option value="CUSTOM">Custom Clause</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="addColumnGroup" class="grid">
+            <div class="field col-4">
+              <label for="addColumnName">Column Name</label>
+              <input id="addColumnName" type="text" placeholder="new_col">
+            </div>
+            <div class="field col-4">
+              <label for="addColumnType">Type</label>
+              <select id="addColumnType">
+                <option value="STRING">STRING</option>
+                <option value="LONG">LONG</option>
+                <option value="INT">INT</option>
+                <option value="DOUBLE">DOUBLE</option>
+                <option value="FLOAT">FLOAT</option>
+                <option value="BOOLEAN">BOOLEAN</option>
+                <option value="UTC">UTC</option>
+                <option value="UTCN">UTCN</option>
+                <option value="DATE">DATE</option>
+                <option value="SHORT">SHORT</option>
+                <option value="BYTE">BYTE</option>
+                <option value="CHAR">CHAR</option>
+                <option value="ENUM">ENUM</option>
+                <option value="BINARY">BINARY</option>
+                <option value="BIGDECIMAL">BIGDECIMAL</option>
+                <option value="BIGINTEGER">BIGINTEGER</option>
+                <option value="COMPLEX">COMPLEX</option>
+                <option value="UUID">UUID</option>
+              </select>
+            </div>
+            <div class="field col-4">
+              <label for="addColumnDirectives">Directives</label>
+              <input id="addColumnDirectives" type="text" placeholder="BITMAP / COMPACT ASCII / ONDISK CACHE=...">
+            </div>
+            <div class="field col-4 hidden" id="addStringDirectiveWrap">
+              <label for="addStringDirectiveSelect">STRING Directive Preset</label>
+              <select id="addStringDirectiveSelect">
+                <option value="">None</option>
+                <option value="BITMAP">BITMAP</option>
+                <option value="COMPACT ASCII">COMPACT ASCII</option>
+                <option value="ASCII">ASCII</option>
+                <option value="ONDISK CACHE=&quot;100MB&quot;">ONDISK CACHE="100MB"</option>
+              </select>
+            </div>
+            <div class="field col-12">
+              <label class="check"><input id="addColumnNoNull" type="checkbox"> NONULL</label>
+              <label class="check"><input id="addColumnNoBroadcast" type="checkbox"> NOBROADCAST</label>
+            </div>
+          </div>
+
+          <div id="dropColumnGroup" class="grid hidden">
+            <div class="field col-6">
+              <label for="dropColumnName">Column To Drop</label>
+              <input id="dropColumnName" type="text" placeholder="old_col">
+            </div>
+          </div>
+
+          <div id="renameColumnGroup" class="grid hidden">
+            <div class="field col-6">
+              <label for="renameOldColumn">Current Column</label>
+              <input id="renameOldColumn" type="text" placeholder="old_col">
+            </div>
+            <div class="field col-6">
+              <label for="renameNewColumn">New Column</label>
+              <input id="renameNewColumn" type="text" placeholder="new_col">
+            </div>
+          </div>
+
+          <div id="changeTypeGroup" class="grid hidden">
+            <div class="field col-4">
+              <label for="changeTypeColumn">Column</label>
+              <input id="changeTypeColumn" type="text" placeholder="qty">
+            </div>
+            <div class="field col-4">
+              <label for="changeTypeNewType">New Type</label>
+              <select id="changeTypeNewType">
+                <option value="STRING">STRING</option>
+                <option value="LONG">LONG</option>
+                <option value="INT">INT</option>
+                <option value="DOUBLE">DOUBLE</option>
+                <option value="FLOAT">FLOAT</option>
+                <option value="BOOLEAN">BOOLEAN</option>
+                <option value="UTC">UTC</option>
+                <option value="UTCN">UTCN</option>
+                <option value="DATE">DATE</option>
+                <option value="SHORT">SHORT</option>
+                <option value="BYTE">BYTE</option>
+                <option value="CHAR">CHAR</option>
+                <option value="ENUM">ENUM</option>
+                <option value="BINARY">BINARY</option>
+                <option value="BIGDECIMAL">BIGDECIMAL</option>
+                <option value="BIGINTEGER">BIGINTEGER</option>
+                <option value="COMPLEX">COMPLEX</option>
+                <option value="UUID">UUID</option>
+              </select>
+            </div>
+            <div class="field col-4">
+              <label for="changeTypeDirectives">Directives</label>
+              <input id="changeTypeDirectives" type="text" placeholder="NONULL / NOBROADCAST / BITMAP / ...">
+            </div>
+            <div class="field col-4 hidden" id="changeTypeStringDirectiveWrap">
+              <label for="changeTypeStringDirectiveSelect">STRING Directive Preset</label>
+              <select id="changeTypeStringDirectiveSelect">
+                <option value="">None</option>
+                <option value="BITMAP">BITMAP</option>
+                <option value="COMPACT ASCII">COMPACT ASCII</option>
+                <option value="ASCII">ASCII</option>
+                <option value="ONDISK CACHE=&quot;100MB&quot;">ONDISK CACHE="100MB"</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="customGroup" class="grid hidden">
+            <div class="field col-12">
+              <label for="customClauseInput">Custom ALTER Clause</label>
+              <textarea id="customClauseInput" placeholder="Example: ADD qty LONG"></textarea>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Selectable Fields</h2>
+          <p class="note">For Drop, Rename, and Change Type, tick a field from the selected table. In Change Type mode, choose the new type directly in the list.</p>
+          <div id="pickerEmpty" class="tiny">Pick an instance and table to load fields.</div>
+          <div id="columnPickerWrap" class="picker-wrap hidden">
+            <div class="picker-head">
+              <div>Pick</div>
+              <div>Field</div>
+              <div>Current Type</div>
+              <div>New Type</div>
+            </div>
+            <div id="columnPicker" class="picker-list"></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="stack">
+        <section class="card">
+          <h2>SQL Preview</h2>
+          <pre class="preview" id="sqlPreview"></pre>
+        </section>
+
+        <section class="card">
+          <h2>Execute</h2>
+          <p class="status" id="status">Ready. Select instance/table and operation, then click Apply Change.</p>
+          <div class="row-actions">
+            <button id="applyBtn" class="btn primary" type="button">Apply Change</button>
+            <button id="resetBtn" class="btn" type="button">Reset</button>
+          </div>
+          <div class="result-meta" id="resultMeta"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const qp = new URLSearchParams(window.location.search);
+    const requestedInstance = (qp.get('instance') || '').trim();
+    const requestedTable = (qp.get('table') || '').trim();
+    const fromQuery = (qp.get('liveBase') || '').trim();
+    const stored = localStorage.getItem('amiLiveBase');
+    const current = new URL(window.location.href);
+    const fallback = (() => {
+      const u = new URL(current.href);
+      u.port = '18092';
+      return u.origin;
+    })();
+    let liveBase = (fromQuery || stored || current.origin || fallback).replace(/\/$/, '');
+
+    const instanceSelect = document.getElementById('instanceSelect');
+    const tableSelect = document.getElementById('tableSelect');
+    const tableNameInput = document.getElementById('tableNameInput');
+    const refreshTablesBtn = document.getElementById('refreshTablesBtn');
+    const operationSelect = document.getElementById('operationSelect');
+
+    const addColumnGroup = document.getElementById('addColumnGroup');
+    const dropColumnGroup = document.getElementById('dropColumnGroup');
+    const renameColumnGroup = document.getElementById('renameColumnGroup');
+    const changeTypeGroup = document.getElementById('changeTypeGroup');
+    const customGroup = document.getElementById('customGroup');
+
+    const addColumnName = document.getElementById('addColumnName');
+    const addColumnType = document.getElementById('addColumnType');
+    const addColumnDirectives = document.getElementById('addColumnDirectives');
+    const addStringDirectiveWrap = document.getElementById('addStringDirectiveWrap');
+    const addStringDirectiveSelect = document.getElementById('addStringDirectiveSelect');
+    const addColumnNoNull = document.getElementById('addColumnNoNull');
+    const addColumnNoBroadcast = document.getElementById('addColumnNoBroadcast');
+
+    const dropColumnName = document.getElementById('dropColumnName');
+    const renameOldColumn = document.getElementById('renameOldColumn');
+    const renameNewColumn = document.getElementById('renameNewColumn');
+    const changeTypeColumn = document.getElementById('changeTypeColumn');
+    const changeTypeNewType = document.getElementById('changeTypeNewType');
+    const changeTypeDirectives = document.getElementById('changeTypeDirectives');
+    const changeTypeStringDirectiveWrap = document.getElementById('changeTypeStringDirectiveWrap');
+    const changeTypeStringDirectiveSelect = document.getElementById('changeTypeStringDirectiveSelect');
+    const customClauseInput = document.getElementById('customClauseInput');
+    const pickerEmpty = document.getElementById('pickerEmpty');
+    const columnPickerWrap = document.getElementById('columnPickerWrap');
+    const columnPicker = document.getElementById('columnPicker');
+
+    const sqlPreview = document.getElementById('sqlPreview');
+    const statusEl = document.getElementById('status');
+    const applyBtn = document.getElementById('applyBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const resultMeta = document.getElementById('resultMeta');
+    const baseNote = document.getElementById('baseNote');
+    const backToViewer = document.getElementById('backToViewer');
+    const openCreateTable = document.getElementById('openCreateTable');
+
+    const VALID_IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
+    const TYPE_OPTIONS = ['STRING','LONG','INT','DOUBLE','FLOAT','BOOLEAN','UTC','UTCN','DATE','SHORT','BYTE','CHAR','ENUM','BINARY','BIGDECIMAL','BIGINTEGER','COMPLEX','UUID'];
+    let tableColumns = [];
+
+    const setStatus = (text, kind = '') => {
+      statusEl.textContent = text;
+      statusEl.className = 'status' + (kind ? ` ${kind}` : '');
+    };
+
+    const setBaseUi = () => {
+      baseNote.textContent = 'Live API base: ' + liveBase;
+      const params = new URLSearchParams();
+      if (instanceSelect.value) params.set('instance', instanceSelect.value);
+      params.set('view', 'tables');
+      params.set('liveBase', liveBase);
+      backToViewer.href = `${liveBase}/ami_flow_live.html?${params.toString()}`;
+
+      const createParams = new URLSearchParams();
+      if (instanceSelect.value) createParams.set('instance', instanceSelect.value);
+      createParams.set('liveBase', liveBase);
+      openCreateTable.href = `${liveBase}/create_table.html?${createParams.toString()}`;
+    };
+
+    const normalizeIdentifier = (value, label) => {
+      const raw = String(value || '').trim();
+      if (!raw) throw new Error(`${label} is required.`);
+      if (raw.startsWith('`') && raw.endsWith('`') && raw.length > 2) return raw;
+      if (!VALID_IDENT.test(raw)) {
+        throw new Error(`${label} must use letters, numbers, and underscores, or be wrapped in backticks.`);
+      }
+      return raw;
+    };
+
+    const parseApiResponse = async (res) => {
+      const raw = await res.text();
+      const contentType = String(res.headers.get('content-type') || '').toLowerCase();
+      if (!contentType.includes('application/json')) {
+        throw new Error(`API did not return JSON (HTTP ${res.status}).`);
+      }
+      let payload;
+      try {
+        payload = JSON.parse(raw);
+      } catch (_) {
+        throw new Error(`API returned invalid JSON (HTTP ${res.status}).`);
+      }
+      if (!res.ok) {
+        throw new Error(payload.error || `Request failed with HTTP ${res.status}.`);
+      }
+      return payload;
+    };
+
+    const probeBase = async (candidate) => {
+      try {
+        const res = await fetch(candidate + '/api/instances', { cache: 'no-store' });
+        if (!res.ok) return false;
+        const payload = await res.json();
+        return Array.isArray(payload.instances);
+      } catch (_) {
+        return false;
+      }
+    };
+
+    const ensureLiveBase = async () => {
+      const candidates = [];
+      const push = (value) => {
+        const v = String(value || '').replace(/\/$/, '');
+        if (v && !candidates.includes(v)) candidates.push(v);
+      };
+      push(fromQuery);
+      push(stored);
+      push(liveBase);
+      push(current.origin);
+      const p18092 = new URL(current.href);
+      p18092.port = '18092';
+      push(p18092.origin);
+      const p8092 = new URL(current.href);
+      p8092.port = '8092';
+      push(p8092.origin);
+
+      for (const candidate of candidates) {
+        if (await probeBase(candidate)) {
+          liveBase = candidate;
+          localStorage.setItem('amiLiveBase', liveBase);
+          setBaseUi();
+          return;
+        }
+      }
+      throw new Error('Could not detect a reachable live API. Start live_view_server.py and pass ?liveBase=http://host:port if needed.');
+    };
+
+    const setOperationUi = () => {
+      const op = operationSelect.value;
+      addColumnGroup.classList.toggle('hidden', op !== 'ADD_COLUMN');
+      dropColumnGroup.classList.toggle('hidden', op !== 'DROP_COLUMN');
+      renameColumnGroup.classList.toggle('hidden', op !== 'RENAME_COLUMN');
+      changeTypeGroup.classList.toggle('hidden', op !== 'CHANGE_COLUMN_TYPE');
+      customGroup.classList.toggle('hidden', op !== 'CUSTOM');
+    };
+
+    const syncStringDirectiveUi = () => {
+      const addIsString = String(addColumnType.value || '').toUpperCase() === 'STRING';
+      const changeIsString = String(changeTypeNewType.value || '').toUpperCase() === 'STRING';
+      addStringDirectiveWrap.classList.toggle('hidden', !addIsString);
+      changeTypeStringDirectiveWrap.classList.toggle('hidden', !changeIsString);
+      if (!addIsString) addStringDirectiveSelect.value = '';
+      if (!changeIsString) changeTypeStringDirectiveSelect.value = '';
+    };
+
+    const selectedPickerRows = () => {
+      return [...columnPicker.querySelectorAll('.pick-check:checked')].map((box) => {
+        const row = box.closest('.picker-row');
+        const name = row ? row.dataset.name || '' : '';
+        const type = row ? row.dataset.type || '' : '';
+        const nextTypeEl = row ? row.querySelector('.pick-newtype') : null;
+        return {
+          name,
+          type,
+          newType: nextTypeEl ? String(nextTypeEl.value || '').trim().toUpperCase() : '',
+        };
+      });
+    };
+
+    const syncOperationFromPicker = () => {
+      const selected = selectedPickerRows();
+      const first = selected[0];
+      if (operationSelect.value === 'DROP_COLUMN') {
+        dropColumnName.value = first ? first.name : '';
+      }
+      if (operationSelect.value === 'RENAME_COLUMN') {
+        renameOldColumn.value = first ? first.name : '';
+      }
+      if (operationSelect.value === 'CHANGE_COLUMN_TYPE') {
+        changeTypeColumn.value = first ? first.name : '';
+        if (first && first.newType) changeTypeNewType.value = first.newType;
+      }
+    };
+
+    const renderTypeOptions = (selectedValue) => {
+      const target = String(selectedValue || 'STRING').toUpperCase();
+      return TYPE_OPTIONS.map((type) => `<option value="${type}"${type === target ? ' selected' : ''}>${type}</option>`).join('');
+    };
+
+    const renderColumnPicker = () => {
+      if (!tableColumns.length) {
+        pickerEmpty.textContent = 'No fields available for the selected table.';
+        pickerEmpty.classList.remove('hidden');
+        columnPickerWrap.classList.add('hidden');
+        columnPicker.innerHTML = '';
+        return;
+      }
+
+      const op = operationSelect.value;
+      const currentKey = (
+        op === 'DROP_COLUMN' ? dropColumnName.value :
+        op === 'RENAME_COLUMN' ? renameOldColumn.value :
+        op === 'CHANGE_COLUMN_TYPE' ? changeTypeColumn.value :
+        ''
+      ).trim().toLowerCase();
+
+      pickerEmpty.classList.add('hidden');
+      columnPickerWrap.classList.remove('hidden');
+      columnPicker.innerHTML = tableColumns.map((col) => {
+        const checked = currentKey && col.name.toLowerCase() === currentKey;
+        const newType = op === 'CHANGE_COLUMN_TYPE'
+          ? (checked ? changeTypeNewType.value : col.type)
+          : col.type;
+        return `
+          <label class="picker-row" data-name="${col.name}" data-type="${col.type}">
+            <input class="pick-check" type="checkbox" ${checked ? 'checked' : ''}>
+            <span class="pick-name">${col.name}</span>
+            <span class="pick-type">${col.type || '-'}</span>
+            ${op === 'CHANGE_COLUMN_TYPE'
+              ? `<select class="pick-newtype">${renderTypeOptions(newType)}</select>`
+              : `<span class="tiny">-</span>`}
+          </label>
+        `;
+      }).join('');
+
+      const singleSelectMode = ['DROP_COLUMN', 'RENAME_COLUMN', 'CHANGE_COLUMN_TYPE'].includes(op);
+      columnPicker.querySelectorAll('.pick-check').forEach((box) => {
+        box.addEventListener('change', () => {
+          if (singleSelectMode && box.checked) {
+            columnPicker.querySelectorAll('.pick-check').forEach((other) => {
+              if (other !== box) other.checked = false;
+            });
+          }
+          syncOperationFromPicker();
+          refreshPreview();
+        });
+      });
+
+      columnPicker.querySelectorAll('.pick-newtype').forEach((sel) => {
+        sel.addEventListener('input', () => {
+          const row = sel.closest('.picker-row');
+          const box = row ? row.querySelector('.pick-check') : null;
+          if (box && !box.checked) {
+            box.checked = true;
+            if (singleSelectMode) {
+              columnPicker.querySelectorAll('.pick-check').forEach((other) => {
+                if (other !== box) other.checked = false;
+              });
+            }
+          }
+          syncOperationFromPicker();
+          refreshPreview();
+        });
+      });
+    };
+
+    const tableNameForSql = () => {
+      const override = String(tableNameInput.value || '').trim();
+      if (override) return normalizeIdentifier(override, 'Table name');
+      return normalizeIdentifier(tableSelect.value, 'Table');
+    };
+
+    const buildClause = () => {
+      const op = operationSelect.value;
+      if (op === 'ADD_COLUMN') {
+        const parts = [
+          'ADD',
+          normalizeIdentifier(addColumnName.value, 'Column name'),
+          String(addColumnType.value || 'STRING').trim().toUpperCase(),
+        ];
+        if (addColumnNoNull.checked) parts.push('NONULL');
+        if (addColumnNoBroadcast.checked) parts.push('NOBROADCAST');
+        if (String(addColumnDirectives.value || '').trim()) parts.push(String(addColumnDirectives.value || '').trim());
+        return parts.join(' ');
+      }
+      if (op === 'DROP_COLUMN') {
+        return `DROP ${normalizeIdentifier(dropColumnName.value, 'Column to drop')}`;
+      }
+      if (op === 'RENAME_COLUMN') {
+        return `RENAME ${normalizeIdentifier(renameOldColumn.value, 'Current column')} TO ${normalizeIdentifier(renameNewColumn.value, 'New column')}`;
+      }
+      if (op === 'CHANGE_COLUMN_TYPE') {
+        const fieldName = normalizeIdentifier(changeTypeColumn.value, 'Column');
+        const parts = [
+          'MODIFY',
+          fieldName,
+          'AS',
+          fieldName,
+          String(changeTypeNewType.value || 'STRING').trim().toUpperCase(),
+        ];
+        if (String(changeTypeDirectives.value || '').trim()) parts.push(String(changeTypeDirectives.value || '').trim());
+        return parts.join(' ');
+      }
+      const custom = String(customClauseInput.value || '').trim();
+      if (!custom) throw new Error('Custom ALTER clause is required.');
+      return custom;
+    };
+
+    const buildSql = () => {
+      const instance = String(instanceSelect.value || '').trim();
+      if (!instance) throw new Error('Instance is required.');
+      const table = tableNameForSql();
+      const clause = buildClause();
+      return { instance, table, sql: `ALTER TABLE ${table} ${clause}` };
+    };
+
+    const refreshPreview = () => {
+      try {
+        const built = buildSql();
+        sqlPreview.textContent = built.sql;
+      } catch (err) {
+        sqlPreview.textContent = String(err && err.message ? err.message : err);
+      }
+      setOperationUi();
+      syncStringDirectiveUi();
+      renderColumnPicker();
+      setBaseUi();
+    };
+
+    const loadInstances = async () => {
+      await ensureLiveBase();
+      const res = await fetch(liveBase + '/api/instances', { cache: 'no-store' });
+      const payload = await parseApiResponse(res);
+      const rows = payload.instances || [];
+      if (!rows.length) throw new Error('No instances found.');
+      instanceSelect.innerHTML = rows.map((row) => {
+        const name = String(row.name || '');
+        const safe = name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        return `<option value="${safe}">${safe}</option>`;
+      }).join('');
+      const requested = rows.find((row) => String(row.name || '').toLowerCase() === requestedInstance.toLowerCase());
+      if (requested) instanceSelect.value = requested.name;
+      setBaseUi();
+    };
+
+    const extractTableName = (row) => {
+      if (row && typeof row === 'object' && !Array.isArray(row) && row.name) return String(row.name);
+      if (Array.isArray(row) && row.length) return String(row[0]);
+      return '';
+    };
+
+    const loadTables = async () => {
+      const instance = String(instanceSelect.value || '').trim();
+      if (!instance) {
+        tableSelect.innerHTML = '';
+        return;
+      }
+      const endpoint = `${liveBase}/api/instance/${encodeURIComponent(instance)}/tables`;
+      const res = await fetch(endpoint, { cache: 'no-store' });
+      const payload = await parseApiResponse(res);
+      const rows = (payload.payload && Array.isArray(payload.payload.rows)) ? payload.payload.rows : [];
+      const names = rows.map(extractTableName).filter(Boolean);
+      if (!names.length) {
+        tableSelect.innerHTML = '';
+        tableNameInput.value = '';
+        throw new Error(`No tables found for ${instance}.`);
+      }
+      tableSelect.innerHTML = names.map((name) => {
+        const safe = name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        return `<option value="${safe}">${safe}</option>`;
+      }).join('');
+
+      const requestMatch = names.find((n) => n.toLowerCase() === requestedTable.toLowerCase());
+      if (requestMatch) {
+        tableSelect.value = requestMatch;
+        tableNameInput.value = requestMatch;
+      } else {
+        tableNameInput.value = tableSelect.value;
+      }
+      setBaseUi();
+    };
+
+    const loadTableSchema = async () => {
+      const instance = String(instanceSelect.value || '').trim();
+      const table = String(tableSelect.value || '').trim();
+      tableColumns = [];
+      if (!instance || !table) {
+        renderColumnPicker();
+        return;
+      }
+      const endpoint = `${liveBase}/api/instance/${encodeURIComponent(instance)}/table_schema/${encodeURIComponent(table)}`;
+      const res = await fetch(endpoint, { cache: 'no-store' });
+      const payload = await parseApiResponse(res);
+      const schema = payload.schema || {};
+      const cols = Array.isArray(schema.columns) ? schema.columns : [];
+      tableColumns = cols.map((col) => ({
+        name: String(col && col.name ? col.name : '').trim(),
+        type: String(col && col.type ? col.type : '').trim().toUpperCase(),
+      })).filter((col) => col.name);
+      renderColumnPicker();
+    };
+
+    const resetForm = () => {
+      operationSelect.value = 'ADD_COLUMN';
+      addColumnName.value = '';
+      addColumnType.value = 'STRING';
+      addColumnDirectives.value = '';
+      addStringDirectiveSelect.value = '';
+      addColumnNoNull.checked = false;
+      addColumnNoBroadcast.checked = false;
+      dropColumnName.value = '';
+      renameOldColumn.value = '';
+      renameNewColumn.value = '';
+      changeTypeColumn.value = '';
+      changeTypeNewType.value = 'STRING';
+      changeTypeDirectives.value = '';
+      changeTypeStringDirectiveSelect.value = '';
+      customClauseInput.value = '';
+      resultMeta.innerHTML = '';
+      setStatus('Ready. Select instance/table and operation, then click Apply Change.');
+      refreshPreview();
+    };
+
+    const renderResultMeta = (result, instanceName, tableName) => {
+      const viewerParams = new URLSearchParams({
+        instance: instanceName,
+        view: 'tables',
+        liveBase,
+      });
+      const editParams = new URLSearchParams({
+        instance: instanceName,
+        table: tableName,
+        liveBase,
+      });
+      resultMeta.innerHTML = [
+        `<div><strong>Instance:</strong> ${instanceName}</div>`,
+        `<div><strong>Table:</strong> ${tableName}</div>`,
+        `<div><strong>Elapsed:</strong> ${result.elapsed_ms ?? '-'} ms</div>`,
+        `<div><a href="${liveBase}/ami_flow_live.html?${viewerParams.toString()}" target="_blank" rel="noreferrer">Open tables view</a></div>`,
+        `<div><a href="${liveBase}/edit_table.html?${editParams.toString()}" target="_blank" rel="noreferrer">Open this table in a new edit tab</a></div>`
+      ].join('');
+    };
+
+    instanceSelect.addEventListener('change', async () => {
+      try {
+        await loadTables();
+        await loadTableSchema();
+        refreshPreview();
+      } catch (err) {
+        setStatus(String(err && err.message ? err.message : err), 'bad');
+        refreshPreview();
+      }
+    });
+
+    tableSelect.addEventListener('change', () => {
+      tableNameInput.value = tableSelect.value;
+      loadTableSchema()
+        .then(() => refreshPreview())
+        .catch((err) => {
+          setStatus(String(err && err.message ? err.message : err), 'bad');
+          refreshPreview();
+        });
+    });
+
+    refreshTablesBtn.addEventListener('click', async () => {
+      refreshTablesBtn.disabled = true;
+      const prev = refreshTablesBtn.textContent;
+      refreshTablesBtn.textContent = 'Reloading...';
+      try {
+        await loadTables();
+        await loadTableSchema();
+        setStatus('Table list refreshed.');
+        refreshPreview();
+      } catch (err) {
+        setStatus(String(err && err.message ? err.message : err), 'bad');
+      } finally {
+        refreshTablesBtn.disabled = false;
+        refreshTablesBtn.textContent = prev;
+      }
+    });
+
+    addStringDirectiveSelect.addEventListener('change', () => {
+      const selected = String(addStringDirectiveSelect.value || '').trim();
+      if (selected) addColumnDirectives.value = selected;
+      refreshPreview();
+    });
+
+    changeTypeStringDirectiveSelect.addEventListener('change', () => {
+      const selected = String(changeTypeStringDirectiveSelect.value || '').trim();
+      if (selected) changeTypeDirectives.value = selected;
+      refreshPreview();
+    });
+
+    [operationSelect, tableNameInput, addColumnName, addColumnType, addColumnDirectives, addColumnNoNull, addColumnNoBroadcast, dropColumnName, renameOldColumn, renameNewColumn, changeTypeColumn, changeTypeNewType, changeTypeDirectives, customClauseInput]
+      .forEach((el) => el.addEventListener('input', refreshPreview));
+
+    applyBtn.addEventListener('click', async () => {
+      let built;
+      try {
+        built = buildSql();
+      } catch (err) {
+        setStatus(String(err && err.message ? err.message : err), 'bad');
+        return;
+      }
+
+      applyBtn.disabled = true;
+      const previous = applyBtn.textContent;
+      applyBtn.textContent = 'Applying...';
+      setStatus(`Submitting ALTER TABLE to ${built.instance}...`);
+      try {
+        const res = await fetch(`${liveBase}/api/instance/${encodeURIComponent(built.instance)}/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sql: built.sql }),
+        });
+        const payload = await parseApiResponse(res);
+        renderResultMeta(payload, built.instance, built.table);
+        setStatus(`Schema change applied on ${built.instance} in ${payload.elapsed_ms ?? '-'} ms.`, 'good');
+      } catch (err) {
+        setStatus(String(err && err.message ? err.message : err), 'bad');
+      } finally {
+        applyBtn.disabled = false;
+        applyBtn.textContent = previous;
+      }
+    });
+
+    resetBtn.addEventListener('click', resetForm);
+
+    (async () => {
+      try {
+        await loadInstances();
+        await loadTables();
+        await loadTableSchema();
+        resetForm();
+      } catch (err) {
+        setStatus(String(err && err.message ? err.message : err), 'bad');
+        sqlPreview.textContent = 'Unable to initialize edit-table page.';
+      }
+    })();
+  </script>
+</body>
+</html>

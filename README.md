@@ -18,17 +18,17 @@ export AMI_DB_PASSWORD='your-password'
 ```
 
 Outputs:
-- `docs/tables.md` (human-readable table catalog)
-- `docs/tables.json` (raw machine-readable payload)
+- `docs/generated/tables.md` (human-readable table catalog)
+- `docs/generated/tables.json` (raw machine-readable payload)
 - `docs/tables_dashboard.html` (unified browser dashboard: tables, schema, relationships, data flow, metrics, external mappings, trigger flow)
-- `docs/schema_catalog.md` and `docs/schema_catalog.json` (column-level schema docs)
-- `docs/relationships.md` and `docs/relationships.json` (inferred table relationships)
-- `docs/data_flow.md` and `docs/data_flow.json` (data-flow category mapping)
-- `docs/business_metrics.md` and `docs/business_metrics.json` (metric candidates + formula hints)
-- `docs/external_mappings.md` and `docs/external_mappings.json` (centers + replications external mappings)
-- `docs/triggers.md` and `docs/triggers.json` (trigger definitions and input->output flow)
-- `docs/procedures.md` and `docs/procedures.json` (procedure inventory + definitions)
-- `docs/timers.md` and `docs/timers.json` (timer inventory, schedules, and definitions)
+- `docs/generated/schema_catalog.md` and `docs/generated/schema_catalog.json` (column-level schema docs)
+- `docs/generated/relationships.md` and `docs/generated/relationships.json` (inferred table relationships)
+- `docs/generated/data_flow.md` and `docs/generated/data_flow.json` (data-flow category mapping)
+- `docs/generated/business_metrics.md` and `docs/generated/business_metrics.json` (metric candidates + formula hints)
+- `docs/generated/external_mappings.md` and `docs/generated/external_mappings.json` (centers + replications external mappings)
+- `docs/generated/triggers.md` and `docs/generated/triggers.json` (trigger definitions and input->output flow)
+- `docs/generated/procedures.md` and `docs/generated/procedures.json` (procedure inventory + definitions)
+- `docs/generated/timers.md` and `docs/generated/timers.json` (timer inventory, schedules, and definitions)
 
 ## Multi-Instance AMI Flow Viewer
 
@@ -41,7 +41,7 @@ cd /home/3forge/3forge-architecture-diagram
 AMI_DB_PASSWORD='pwadmin123' /home/3forge/3forge-architecture-diagram/.venv/bin/python scripts/document_tables.py \
 	--instances-config ./instances.json \
 	--output-multi-dashboard ./docs/ami_flow_viewer.html \
-	--output-multi-json ./docs/ami_flow_viewer.json
+	--output-multi-json ./docs/generated/ami_flow_viewer.json
 ```
 
 Open:
@@ -109,15 +109,15 @@ Run data refresh + CORS server together:
 
 ```bash
 cd /home/3forge/3forge-architecture-diagram
-AMI_DB_PASSWORD='pwadmin123' ./scripts/start_dashboard.sh
+AMI_DB_PASSWORD='pwadmin123' ./scripts/bin/start_dashboard.sh
 ```
 
 Open:
 - `http://localhost:8080/tables_dashboard.html`
 
 Options:
-- `PORT=8090 ./scripts/start_dashboard.sh` to change port.
-- `SKIP_REFRESH=1 ./scripts/start_dashboard.sh` to serve existing docs without querying DB.
+- `PORT=8090 ./scripts/bin/start_dashboard.sh` to change port.
+- `SKIP_REFRESH=1 ./scripts/bin/start_dashboard.sh` to serve existing docs without querying DB.
 
 ## Git Sync With All Remotes
 
@@ -129,7 +129,7 @@ Single-command full sync (fetch all + pull upstream + push both remotes):
 
 ```bash
 cd /home/3forge/3forge-architecture-diagram
-./scripts/sync_all_remotes.sh
+./scripts/bin/sync_all_remotes.sh
 ```
 
 Notes:
@@ -144,6 +144,6 @@ Optional flags:
 	--user 'pwadmin' \
 	--password '***' \
 	--jar-path './out.jar' \
-	--output-md './docs/tables.md' \
-	--output-json './docs/tables.json'
+	--output-md './docs/generated/tables.md' \
+	--output-json './docs/generated/tables.json'
 ```

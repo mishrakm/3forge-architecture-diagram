@@ -376,6 +376,34 @@ def query_table_data(
             connection.close()
 
 
+def query_table_schema(
+    instance_cfg: dict[str, Any],
+    args: argparse.Namespace,
+    table_name: str,
+) -> dict[str, Any]:
+    _validate_obj_name(table_name)
+    started = time.time()
+    connection = None
+    cursor = None
+    try:
+        connection = _make_connection(instance_cfg, args)
+        cursor = connection.cursor()
+        schema = fetch_table_schema(cursor, table_name)
+        elapsed_ms = int((time.time() - started) * 1000)
+        return {
+            "instance": str(instance_cfg.get("name") or instance_cfg.get("url")),
+            "table": table_name,
+            "schema": schema,
+            "elapsed_ms": elapsed_ms,
+            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        }
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if connection is not None:
+            connection.close()
+
+
 def query_execute(
     instance_cfg: dict[str, Any],
     args: argparse.Namespace,
@@ -953,6 +981,17 @@ class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
                         self.write_json(404, {"error": f"Unknown instance: {instance_name}"})
                         return
                     result = query_table_data(cfg, self.app.generator_args, table_name)
+                    self.write_json(200, result)
+                    return
+
+                # /api/instance/<name>/table_schema/<tablename>
+                if len(parts) == 3 and parts[1] == "table_schema":
+                    instance_name, _, table_name = parts
+                    cfg = self.app.instance_map.get(instance_name.lower())
+                    if cfg is None:
+                        self.write_json(404, {"error": f"Unknown instance: {instance_name}"})
+                        return
+                    result = query_table_schema(cfg, self.app.generator_args, table_name)
                     self.write_json(200, result)
                     return
 
