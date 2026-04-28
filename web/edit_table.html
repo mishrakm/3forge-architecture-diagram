@@ -433,6 +433,10 @@
         <section class="card">
           <h2>Selectable Fields</h2>
           <p class="note">For Drop, Rename, and Change Type, tick a field from the selected table. In Change Type mode, choose the new type directly in the list.</p>
+          <div class="field col-12" style="margin-bottom:10px;">
+            <label for="pickerSearchInput">Search Loaded Fields</label>
+            <input id="pickerSearchInput" type="text" placeholder="Find field by name or type...">
+          </div>
           <div id="pickerEmpty" class="tiny">Pick an instance and table to load fields.</div>
           <div id="columnPickerWrap" class="picker-wrap hidden">
             <div class="picker-head">
@@ -511,6 +515,7 @@
     const pickerEmpty = document.getElementById('pickerEmpty');
     const columnPickerWrap = document.getElementById('columnPickerWrap');
     const columnPicker = document.getElementById('columnPicker');
+    const pickerSearchInput = document.getElementById('pickerSearchInput');
 
     const sqlPreview = document.getElementById('sqlPreview');
     const statusEl = document.getElementById('status');
@@ -728,6 +733,28 @@
           refreshPreview();
         });
       });
+
+      applyPickerFilter();
+    };
+
+    const applyPickerFilter = () => {
+      const needle = String(pickerSearchInput.value || '').trim().toLowerCase();
+      const rows = [...columnPicker.querySelectorAll('.picker-row')];
+      let visible = 0;
+      rows.forEach((row) => {
+        const name = String(row.dataset.name || '').toLowerCase();
+        const type = String(row.dataset.type || '').toLowerCase();
+        const show = !needle || `${name} ${type}`.includes(needle);
+        row.style.display = show ? '' : 'none';
+        if (show) visible += 1;
+      });
+
+      if (tableColumns.length && visible === 0) {
+        pickerEmpty.textContent = 'No fields match your search.';
+        pickerEmpty.classList.remove('hidden');
+      } else if (tableColumns.length) {
+        pickerEmpty.classList.add('hidden');
+      }
     };
 
     const tableNameForSql = () => {
@@ -959,6 +986,8 @@
 
     [operationSelect, tableNameInput, addColumnName, addColumnType, addColumnDirectives, addColumnNoNull, addColumnNoBroadcast, dropColumnName, renameOldColumn, renameNewColumn, changeTypeColumn, changeTypeNewType, changeTypeDirectives, customClauseInput]
       .forEach((el) => el.addEventListener('input', refreshPreview));
+
+    pickerSearchInput.addEventListener('input', applyPickerFilter);
 
     applyBtn.addEventListener('click', async () => {
       let built;

@@ -1,0 +1,31 @@
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# Local IDE/editor state
+.vscode/
+.idea/
+
+# Local instance credentials/config
+.instances.key
+instances.json
+
+# Runtime logs and temp artifacts
+logs/
+*.log
+scripts/temp.txt
+
+# Generated docs/data artifacts
+docs/generated/
+*.md.json
+
+# Build/output artifacts
+out.jar
+
+# OS junk
+.DS_Store
+Thumbs.db

@@ -300,6 +300,10 @@
         <section class="card">
           <h2>Columns</h2>
           <p class="note">Choose the base type, then use directives for extras such as BITMAP, COMPACT ASCII, ONDISK CACHE="100MB", or other supported modifiers.</p>
+          <div class="field col-12" style="margin-bottom:10px;">
+            <label for="columnSearchInput">Search Loaded Fields</label>
+            <input id="columnSearchInput" type="text" placeholder="Find by name, type, or directives...">
+          </div>
           <div class="columns-head">
             <div>Name</div>
             <div>Type</div>
@@ -433,6 +437,7 @@
     const tableNameInput = document.getElementById('tableNameInput');
     const ifNotExistsInput = document.getElementById('ifNotExistsInput');
     const columnsBody = document.getElementById('columnsBody');
+    const columnSearchInput = document.getElementById('columnSearchInput');
     const columnTemplate = document.getElementById('columnRowTemplate');
     const addColumnBtn = document.getElementById('addColumnBtn');
     const createBtn = document.getElementById('createBtn');
@@ -548,10 +553,25 @@
         node.remove();
         if (!columnsBody.children.length) addColumnRow();
         refreshPreview();
+        applyColumnFilter();
       });
       columnsBody.appendChild(node);
-      node.querySelectorAll('input, select').forEach((el) => el.addEventListener('input', refreshPreview));
+      node.querySelectorAll('input, select').forEach((el) => el.addEventListener('input', () => {
+        refreshPreview();
+        applyColumnFilter();
+      }));
       return node;
+    };
+
+    const applyColumnFilter = () => {
+      const needle = String(columnSearchInput.value || '').trim().toLowerCase();
+      [...columnsBody.querySelectorAll('.column-row')].forEach((row) => {
+        const name = String(row.querySelector('.col-name')?.value || '').toLowerCase();
+        const type = String(row.querySelector('.col-type')?.value || '').toLowerCase();
+        const dir = String(row.querySelector('.col-directives')?.value || '').toLowerCase();
+        const text = `${name} ${type} ${dir}`;
+        row.style.display = !needle || text.includes(needle) ? '' : 'none';
+      });
     };
 
     const collectColumns = () => {
@@ -701,7 +721,10 @@
     addColumnBtn.addEventListener('click', () => {
       addColumnRow();
       refreshPreview();
+      applyColumnFilter();
     });
+
+    columnSearchInput.addEventListener('input', applyColumnFilter);
 
     [instanceSelect, scopeSelect, tableNameInput, ifNotExistsInput, persistEngineSelect, persistEngineCustomInput, broadcastSelect, onUndefColumnSelect, refreshPeriodInput, initialCapacityInput, persistOptionsInput]
       .forEach((el) => el.addEventListener('input', refreshPreview));
@@ -712,6 +735,7 @@
       try {
         await loadInstances();
         resetForm();
+        applyColumnFilter();
       } catch (err) {
         setStatus(String(err && err.message ? err.message : err), 'bad');
         sqlPreview.textContent = 'Unable to initialize create-table page.';

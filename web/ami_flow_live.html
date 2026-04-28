@@ -4,122 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AMI Flow Viewer Live</title>
-  <style>
-    :root { --bg:#f6f3ed; --card:#fff; --ink:#2b2926; --muted:#6a635b; --line:#e7dfd4; --brand:#0b728f; }
-    * { box-sizing:border-box; }
-    body { margin:0; font-family:Segoe UI,Tahoma,sans-serif; background:var(--bg); color:var(--ink); }
-    .app { display:grid; grid-template-columns:320px minmax(0,1fr); min-height:100vh; }
-    .left { border-right:1px solid var(--line); background:#fff; overflow:auto; }
-    .right { overflow:auto; padding:16px; min-width:0; }
-    .head { padding:14px; border-bottom:1px solid var(--line); position:sticky; top:0; background:#fff; z-index:2; }
-    .head h1 { margin:0; font-size:20px; }
-    .head p { margin:4px 0 0; color:var(--muted); font-size:12px; }
-    .tree { padding:10px; }
-    .tree details { border:1px solid var(--line); border-radius:10px; background:#faf8f5; margin-bottom:8px; }
-    .tree summary { cursor:pointer; list-style:none; padding:8px 10px; font-weight:700; }
-    .tree summary::-webkit-details-marker { display:none; }
-    .leaf { display:block; width:100%; border:0; background:transparent; text-align:left; padding:7px 12px; cursor:pointer; color:var(--ink); }
-    .leaf:hover { background:#eef7fa; }
-    .leaf.active { background:var(--brand); color:#fff; }
-    .panel { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; min-width:0; }
-    .panel h2 { margin:0 0 10px; }
-    .meta { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:8px; margin-bottom:10px; }
-    .k { border:1px solid var(--line); border-radius:10px; padding:8px; background:#fcfbf9; }
-    .k .n { color:var(--muted); font-size:11px; text-transform:uppercase; }
-    .k .v { margin-top:4px; font-weight:700; }
-    .stack { display:grid; gap:12px; }
-    .chart-card { border:1px solid var(--line); border-radius:10px; background:#fcfbf9; padding:10px; }
-    .chart-card p { margin:0 0 8px; color:var(--muted); font-size:12px; }
-    .svg-wrap { overflow:auto; border:1px solid #f2ece2; border-radius:10px; background:#fff; }
-    .lineage-label { fill:#594f46; font-size:10px; font-family:Segoe UI,Tahoma,sans-serif; }
-    .lineage-label-tspan { dominant-baseline:middle; }
-    .lineage-edge { stroke:#8f8a84; stroke-width:1.4; fill:none; marker-end:url(#arrow); }
-    .lineage-node-table { fill:#e8f3f6; stroke:#0b728f; stroke-width:1.1; }
-    .lineage-node-trigger { fill:#fce8cc; stroke:#c77d1a; stroke-width:1.1; }
-    .status { margin:0 0 10px; color:var(--muted); font-size:12px; }
-    .statusbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
-    .statusbar .status { margin:0; }
-    .status-actions { display:flex; align-items:center; gap:8px; }
-    .schema-studio { border:1px solid var(--line); border-radius:10px; background:#f8fcfd; padding:10px; margin-bottom:10px; display:grid; gap:8px; }
-    .schema-studio-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .schema-studio-title { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; }
-    .schema-studio-meta { display:flex; gap:8px; flex-wrap:wrap; }
-    .schema-chip { border:1px solid #cfe2e8; background:#eef7fa; color:#165468; border-radius:999px; padding:3px 8px; font-size:11px; }
-    .schema-actions { display:flex; gap:8px; flex-wrap:wrap; }
-    .schema-composer { display:none; border:1px solid var(--line); border-radius:10px; background:#fff; margin-bottom:10px; overflow:hidden; }
-    .schema-composer.open { display:block; }
-    .schema-composer-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-bottom:1px solid var(--line); background:#f7fbfc; }
-    .schema-composer-title { margin:0; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; }
-    .schema-composer-tabs { display:flex; gap:8px; }
-    .schema-tab { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:8px; padding:5px 9px; font-size:12px; cursor:pointer; }
-    .schema-tab.active { background:var(--brand); color:#fff; border-color:var(--brand); }
-    .schema-composer-body { padding:10px; display:grid; gap:10px; }
-    .schema-grid { display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:8px; }
-    .schema-col-3 { grid-column:span 3; }
-    .schema-col-4 { grid-column:span 4; }
-    .schema-col-6 { grid-column:span 6; }
-    .schema-col-12 { grid-column:span 12; }
-    .schema-field { display:grid; gap:4px; }
-    .schema-field label { color:var(--muted); font-size:11px; text-transform:uppercase; }
-    .schema-field input, .schema-field select, .schema-field textarea { width:100%; border:1px solid #d8cfc2; border-radius:8px; padding:7px 9px; font-size:12px; background:#fff; color:var(--ink); }
-    .schema-field textarea { min-height:74px; resize:vertical; font-family:'Cascadia Code','Consolas','Courier New',monospace; }
-    .schema-columns { display:grid; gap:8px; }
-    .schema-row { border:1px solid var(--line); border-radius:8px; padding:8px; background:#fcfbf9; display:grid; grid-template-columns:1fr .8fr 1.2fr auto auto auto; gap:8px; align-items:center; }
-    .schema-check { display:inline-flex; align-items:center; gap:6px; font-size:12px; }
-    .schema-mini { border:1px solid #ebc5bc; background:#fff3ef; color:#9c2f1c; border-radius:8px; padding:6px 8px; font-size:12px; cursor:pointer; }
-    .schema-preview { margin:0; padding:12px; background:#1f2428; color:#f5f7fa; border-radius:8px; overflow:auto; white-space:pre-wrap; word-break:break-word; font:12px/1.45 'Cascadia Code','Consolas','Courier New',monospace; }
-    .schema-status { margin:0; padding:10px; border-radius:8px; border:1px solid #efcfab; background:#fff4e6; color:#8a4b08; font-size:12px; }
-    .schema-status.good { border-color:#a5d6ba; background:#ebfff3; color:#1f7a4f; }
-    .schema-status.bad { border-color:#efb3b3; background:#fff1f1; color:#b42318; }
-    .schema-actions-row { display:flex; gap:8px; flex-wrap:wrap; }
-    .schema-panel { display:none; }
-    .schema-panel.open { display:grid; gap:10px; }
-    #meta { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
-    .meta-pill { display:inline-flex; gap:6px; align-items:center; border:1px solid var(--line); border-radius:999px; padding:4px 8px; background:#fcfbf9; font-size:11px; }
-    .meta-pill .n { color:var(--muted); text-transform:uppercase; }
-    .meta-pill .v { font-weight:700; max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .query-btn { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:8px; padding:5px 9px; font-size:12px; cursor:pointer; }
-    .query-btn:hover { border-color:#cdbfae; }
-    .query-panel { display:none; border:1px solid var(--line); border-radius:10px; padding:10px; background:#fcfbf9; margin-bottom:10px; }
-    .query-panel.open { display:block; }
-    .query-help { color:var(--muted); font-size:12px; margin:0 0 8px; }
-    .query-input { width:100%; min-height:130px; resize:vertical; border:1px solid #d8cfc2; border-radius:8px; padding:10px; font:12px/1.45 'Cascadia Code','Consolas','Courier New',monospace; color:var(--ink); background:#fff; white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; }
-    .query-options { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
-    .query-opt { display:grid; gap:4px; }
-    .query-opt label { color:var(--muted); font-size:11px; text-transform:uppercase; }
-    .query-opt input { width:100%; border:1px solid #d8cfc2; border-radius:8px; padding:7px 9px; font-size:12px; background:#fff; color:var(--ink); }
-    .k .v { overflow-wrap:anywhere; word-break:break-word; }
-    .query-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
-    .query-run { border:1px solid #0b728f; background:#0b728f; color:#fff; border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer; }
-    .query-close { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer; }
-    .query-run:hover { opacity:.92; }
-    .query-close:hover { border-color:#cdbfae; }
-    .loading { padding:16px; border:1px dashed var(--line); border-radius:10px; color:var(--muted); background:#fffcf8; }
-    .error { padding:16px; border:1px solid #f0c2bc; border-radius:10px; color:#7a1f1f; background:#fff1ef; }
-    table { width:100%; border-collapse:collapse; font-size:12px; }
-    th,td { border-bottom:1px solid #f2ece2; text-align:left; padding:8px; vertical-align:top; }
-    th { background:#f9f5ef; position:sticky; top:0; }
-    tbody tr:nth-child(even):not(.ddl-expand-row) { background:#dff0f5; }
-    tbody tr:nth-child(odd):not(.ddl-expand-row)  { background:#fff; }
-    .tbl { max-height:70vh; overflow:auto; border:1px solid var(--line); border-radius:10px; }
-    .describe-link { cursor:pointer; color:var(--brand); background:none; border:none; font:inherit; font-size:12px; text-decoration:underline; padding:0; text-align:left; }
-    .describe-link:hover { opacity:.75; }
-    .ddl-expand-row { display:none; }
-    .ddl-expand-row.open { display:table-row; }
-    .ddl-block { background:#f4f0e8; padding:10px 14px; border-radius:6px; font:11.5px/1.6 'Cascadia Code','Consolas','Courier New',monospace; white-space:pre-wrap; word-break:break-all; color:#2b2926; border:1px solid #ddd6c8; max-height:340px; overflow:auto; }
-    .ddl-block.ddl-err { background:#fff1ef; border-color:#f0c2bc; color:#7a1f1f; }
-    .action-cell { white-space:nowrap; }
-    .action-link { cursor:pointer; color:var(--brand); background:none; border:none; font:inherit; font-size:11px; text-decoration:underline; padding:0 4px 0 0; }
-    .action-link:hover { opacity:.75; }
-    .action-link.drop-btn { color:#a02020; }
-    @media (max-width: 980px) {
-      .app { grid-template-columns:1fr; }
-      .left { border-right:0; border-bottom:1px solid var(--line); }
-      .meta { grid-template-columns:1fr 1fr; }
-      .schema-row { grid-template-columns:1fr; }
-      .schema-col-3, .schema-col-4, .schema-col-6, .schema-col-12 { grid-column:span 12; }
-    }
-  </style>
+  <link rel="stylesheet" href="ami_flow_live.css">
 </head>
 <body>
   <div class="app">
@@ -156,6 +41,9 @@
             <button class="query-btn" id="schemaEditSelectedBtn" type="button" disabled>Edit Selected Table</button>
           </div>
         </section>
+        <div class="object-search">
+          <input id="tableSearchInput" type="text" placeholder="Search loaded objects/rows on this page...">
+        </div>
         <div class="query-panel" id="queryPanel">
           <p class="query-help">Run one SQL statement at a time. Press Ctrl+Enter to execute.</p>
           <textarea class="query-input" id="queryInput" spellcheck="false" placeholder="show triggers"></textarea>
@@ -307,6 +195,7 @@
     const queryTimeoutInput = document.getElementById('queryTimeoutInput');
     const queryRunBtn = document.getElementById('queryRunBtn');
     const queryCloseBtn = document.getElementById('queryCloseBtn');
+    const tableSearchInput = document.getElementById('tableSearchInput');
     const TYPE_OPTIONS = ['STRING','LONG','INT','DOUBLE','FLOAT','BOOLEAN','UTC','UTCN','DATE','SHORT','BYTE','CHAR','ENUM','BINARY','BIGDECIMAL','BIGINTEGER','COMPLEX','UUID'];
 
     const params = new URLSearchParams(window.location.search);
@@ -337,12 +226,114 @@
       .replace(/'/g, '&#39;');
 
     const renderRows = (headers, rows) => {
-      const th = headers.map((h) => `<th>${h}</th>`).join('');
+      const th = headers.map((h, i) => `<th class="sortable" data-col="${i}">${h}</th>`).join('');
       const tr = rows.map((r) => `<tr>${r.map((c) => `<td>${fmt(c)}</td>`).join('')}</tr>`).join('');
       return `<div class="tbl"><table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
     };
 
+    const parseSortValue = (text) => {
+      const raw = String(text || '').trim();
+      const n = Number(raw.replace(/,/g, ''));
+      if (raw && Number.isFinite(n)) return { type: 'num', value: n };
+      return { type: 'str', value: raw.toLowerCase() };
+    };
+
+    const sortTableByColumn = (table, colIdx, dir) => {
+      const tbody = table && table.tBodies && table.tBodies[0];
+      if (!tbody) return;
+      const rows = [...tbody.querySelectorAll(':scope > tr')];
+      if (!rows.length) return;
+
+      const paired = [];
+      for (let i = 0; i < rows.length; i += 1) {
+        const main = rows[i];
+        if (main.classList.contains('ddl-expand-row')) continue;
+        const next = rows[i + 1];
+        const extra = next && next.classList.contains('ddl-expand-row') ? next : null;
+        if (extra) i += 1;
+        const cell = main.children[colIdx];
+        const parsed = parseSortValue(cell ? cell.textContent : '');
+        paired.push({ main, extra, parsed });
+      }
+
+      paired.sort((a, b) => {
+        if (a.parsed.type === 'num' && b.parsed.type === 'num') return dir * (a.parsed.value - b.parsed.value);
+        return dir * String(a.parsed.value).localeCompare(String(b.parsed.value));
+      });
+
+      paired.forEach((entry) => {
+        tbody.appendChild(entry.main);
+        if (entry.extra) tbody.appendChild(entry.extra);
+      });
+    };
+
+    const applyHeaderSortState = (table, activeCol, dir) => {
+      table.querySelectorAll('thead th.sortable').forEach((th) => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        if (Number(th.dataset.col) === activeCol) {
+          th.classList.add(dir === 1 ? 'sort-asc' : 'sort-desc');
+        }
+      });
+    };
+
+    const makeSortKey = (instanceName, sectionName, detail = '') =>
+      `${String(instanceName || '-')}:${String(sectionName || '-')}:${String(detail || '-')}`;
+
+    const getTableIdx = (table) => {
+      const tables = [...tableWrap.querySelectorAll('.tbl table')];
+      return tables.findIndex((t) => t === table);
+    };
+
+    const saveSortPreference = (table, colIdx, dir) => {
+      const key = tableWrap.dataset.sortKey;
+      if (!key) return;
+      const idx = getTableIdx(table);
+      if (idx < 0) return;
+      const pref = tableSortPrefs.get(key) || {};
+      pref[idx] = { colIdx, dir };
+      tableSortPrefs.set(key, pref);
+    };
+
+    const applySavedSortPreferences = () => {
+      const key = tableWrap.dataset.sortKey;
+      if (!key) return;
+      const pref = tableSortPrefs.get(key);
+      if (!pref) return;
+      const tables = [...tableWrap.querySelectorAll('.tbl table')];
+      tables.forEach((table, idx) => {
+        const entry = pref[idx];
+        if (!entry) return;
+        const colCount = table.querySelectorAll('thead th').length;
+        if (!Number.isInteger(entry.colIdx) || entry.colIdx < 0 || entry.colIdx >= colCount) return;
+        const dir = entry.dir === -1 ? -1 : 1;
+        sortTableByColumn(table, entry.colIdx, dir);
+        applyHeaderSortState(table, entry.colIdx, dir);
+        table.dataset.sortCol = String(entry.colIdx);
+        table.dataset.sortDir = String(dir);
+      });
+    };
+
+    const applyTableSearchFilter = () => {
+      const needle = String(tableSearchInput.value || '').trim().toLowerCase();
+      const rows = [...tableWrap.querySelectorAll('tbody > tr:not(.ddl-expand-row)')];
+      if (!rows.length) return;
+      rows.forEach((row) => {
+        const match = !needle || row.textContent.toLowerCase().includes(needle);
+        row.style.display = match ? '' : 'none';
+        const next = row.nextElementSibling;
+        if (next && next.classList.contains('ddl-expand-row')) {
+          if (!match) {
+            next.classList.remove('open');
+            next.style.display = 'none';
+          } else {
+            next.style.display = '';
+          }
+        }
+      });
+    };
+
     const renderQueryResult = (result) => {
+      tableWrap.dataset.sortKey = makeSortKey(currentInstance, 'query_result');
       const lines = [
         `<div class="k"><div class="n">Query</div><div class="v">${esc(result.sql || '')}</div></div>`,
         `<div class="k"><div class="n">Elapsed</div><div class="v">${esc(fmt(result.elapsed_ms))} ms</div></div>`,
@@ -352,6 +343,7 @@
         const cols = Array.isArray(result.columns) ? result.columns : [];
         const rows = Array.isArray(result.rows) ? result.rows : [];
         tableWrap.innerHTML = `<div class="meta">${lines.join('')}</div>${renderRows(cols, rows)}`;
+        applySavedSortPreferences();
       } else {
         lines.push(`<div class="k"><div class="n">Affected Rows</div><div class="v">${esc(fmt(result.affected_rows))}</div></div>`);
         tableWrap.innerHTML = `<div class="meta">${lines.join('')}</div><div class="loading">Statement executed successfully.</div>`;
@@ -365,7 +357,9 @@
     let currentView = null;
     let selectedTable = null;
     let composerMode = 'create';
+    let composerInitialized = false;
     let editTableColumns = [];
+    const tableSortPrefs = new Map();
     let _ddlRowCounter = 0;
 
     const setSchemaContext = (instanceName, tableName) => {
@@ -525,6 +519,7 @@
         alert('Select an instance first.');
         return;
       }
+      initSchemaComposerOnce();
       if (tableName) setSchemaContext(currentInstance, tableName);
       schemaComposer.classList.add('open');
       setComposerMode(mode === 'edit' ? 'edit' : 'create');
@@ -549,8 +544,75 @@
     const openCreateTable = () => openSchemaComposer('create');
     const openEditTable = (tableName = null) => openSchemaComposer('edit', tableName);
 
+    const initSchemaComposerOnce = () => {
+      if (composerInitialized) return;
+      composerInitialized = true;
+
+      TYPE_OPTIONS.forEach((t) => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        editTypeSelect.appendChild(opt);
+      });
+
+      createColumnsWrap.appendChild(createColumnRow({ name: 'id', type: 'LONG', nn: true }));
+      createColumnsWrap.appendChild(createColumnRow({ name: 'name', type: 'STRING' }));
+      renderCreatePreview();
+      renderEditPreview();
+
+      createAddColumnBtn.addEventListener('click', () => {
+        createColumnsWrap.appendChild(createColumnRow({ type: 'STRING' }));
+        renderCreatePreview();
+      });
+
+      [createScopeSelect, createTableNameInput, createIfNotExistsInput].forEach((el) => {
+        el.addEventListener('input', renderCreatePreview);
+      });
+
+      createRunBtn.addEventListener('click', async () => {
+        try {
+          const sql = buildCreateSql();
+          createRunBtn.disabled = true;
+          setComposerStatus(createStatus, 'Creating table...');
+          const data = await executeSql(sql);
+          setComposerStatus(createStatus, `Create succeeded in ${fmt(data.elapsed_ms)} ms.`, 'good');
+          if (currentView) loadView(currentInstance, currentView, null);
+        } catch (err) {
+          setComposerStatus(createStatus, err.message || String(err), 'bad');
+        } finally {
+          createRunBtn.disabled = false;
+        }
+      });
+
+      [editOperationSelect, editColumnSelect, editTargetColumnInput, editTypeSelect, editDirectivesInput, editCustomClauseInput]
+        .forEach((el) => el.addEventListener('input', renderEditPreview));
+
+      editTableSelect.addEventListener('input', async () => {
+        setSchemaContext(currentInstance, editTableSelect.value || null);
+        await loadEditColumns();
+        renderEditPreview();
+      });
+
+      editRunBtn.addEventListener('click', async () => {
+        try {
+          const sql = buildEditSql();
+          editRunBtn.disabled = true;
+          setComposerStatus(editStatus, 'Applying schema change...');
+          const data = await executeSql(sql);
+          setComposerStatus(editStatus, `Change applied in ${fmt(data.elapsed_ms)} ms.`, 'good');
+          await loadEditTables();
+          await loadEditColumns();
+          if (currentView) loadView(currentInstance, currentView, null);
+        } catch (err) {
+          setComposerStatus(editStatus, err.message || String(err), 'bad');
+        } finally {
+          editRunBtn.disabled = false;
+        }
+      });
+    };
+
     const renderDescribable = (headers, rows, colDescribeMap, htmlCols = new Set()) => {
-      const th = headers.map((h) => `<th>${h}</th>`).join('');
+      const th = headers.map((h, i) => `<th class="sortable" data-col="${i}">${h}</th>`).join('');
       const bodyRows = rows.map((r) => {
         const expandId = `ddl-row-${_ddlRowCounter++}`;
         const cells = r.map((c, colIdx) => {
@@ -573,10 +635,26 @@
     const actionDrop = (objType, objName) => `<button class="action-link drop-btn" data-type="${esc(objType)}" data-name="${esc(objName)}">Drop</button>`;
     const apiUrl = (path) => `${liveApiBase}${path}`;
     const actionEditTable = (_instName, tblName) => `<button class="action-link open-edit-btn" data-table="${esc(tblName)}">Edit Structure</button>`;
-    const actionViewData = (instName, tblName) => `<a class="action-link" href="${liveApiBase}/table_data.html?instance=${encodeURIComponent(instName)}&table=${encodeURIComponent(tblName)}&liveBase=${encodeURIComponent(liveApiBase)}" target="_blank">View Data</a>`;
+    const actionViewData = (_instName, tblName) => `<button class="action-link open-view-data-btn" data-table="${esc(tblName)}">View Data</button>`;
     const procedureRowObjectType = (row) => String(row[1] || '').toUpperCase() === 'METHOD' ? 'method' : 'procedure';
 
     tableWrap.addEventListener('click', async (e) => {
+      const sortableTh = e.target.closest('th.sortable');
+      if (sortableTh) {
+        const table = sortableTh.closest('table');
+        if (!table) return;
+        const colIdx = Number(sortableTh.dataset.col || '0');
+        const prevCol = Number(table.dataset.sortCol || '-1');
+        const prevDir = Number(table.dataset.sortDir || '1');
+        const dir = prevCol === colIdx ? (prevDir === 1 ? -1 : 1) : 1;
+        table.dataset.sortCol = String(colIdx);
+        table.dataset.sortDir = String(dir);
+        sortTableByColumn(table, colIdx, dir);
+        applyHeaderSortState(table, colIdx, dir);
+        saveSortPreference(table, colIdx, dir);
+        return;
+      }
+
       // DDL expand
       const descBtn = e.target.closest('.describe-link');
       if (descBtn && currentInstance) {
@@ -625,6 +703,15 @@
         const tableName = editBtn.dataset.table || null;
         setSchemaContext(currentInstance, tableName);
         openEditTable(tableName);
+        return;
+      }
+
+      const viewDataBtn = e.target.closest('.open-view-data-btn');
+      if (viewDataBtn && currentInstance) {
+        const tableName = viewDataBtn.dataset.table || null;
+        if (!tableName) return;
+        await loadTableData(currentInstance, tableName);
+        return;
       }
     });
 
@@ -986,9 +1073,46 @@
       );
     };
 
+    const loadTableData = async (instanceName, tableName) => {
+      setSchemaContext(instanceName, tableName);
+      tableWrap.dataset.sortKey = makeSortKey(instanceName, 'table_data', tableName);
+      title.textContent = `${instanceName} / table_data / ${tableName}`;
+      statusEl.textContent = `Loading rows from ${tableName}...`;
+      renderLoading(`Fetching table data for ${tableName}...`);
+      try {
+        const data = await fetchJsonChecked(
+          apiUrl(`/api/instance/${encodeURIComponent(instanceName)}/table_data/${encodeURIComponent(tableName)}`),
+          30000
+        );
+        setMeta([
+          ['Instance', data.instance],
+          ['Section', 'table_data'],
+          ['Table', data.table],
+          ['Rows', data.row_count],
+          ['Query Time (ms)', data.elapsed_ms],
+          ['Generated (UTC)', data.generated_at_utc],
+        ]);
+        tableWrap.innerHTML = renderRows(data.columns || [], data.rows || []);
+        applySavedSortPreferences();
+        statusEl.textContent = `Loaded ${fmt(data.row_count)} rows from ${tableName}`;
+      } catch (err) {
+        setMeta([
+          ['Instance', instanceName],
+          ['Section', 'table_data'],
+          ['Table', tableName],
+          ['Rows', '-'],
+          ['Query Time (ms)', '-'],
+          ['Generated (UTC)', '-'],
+        ]);
+        renderError(err && err.message ? err.message : String(err));
+        statusEl.textContent = 'Table data request failed';
+      }
+    };
+
     const loadView = async (instanceName, view, btn) => {
       setSchemaContext(instanceName, selectedTable);
       currentView = view;
+      tableWrap.dataset.sortKey = makeSortKey(instanceName, view);
       _ddlRowCounter = 0;
       title.textContent = `${instanceName} / ${view}`;
       statusEl.textContent = 'Loading live data from AMI...';
@@ -1025,6 +1149,7 @@
           ['Generated (UTC)', data.generated_at_utc],
         ]);
         renderSection(view, data);
+        applySavedSortPreferences();
         statusEl.textContent = `Live mode: fetched in ${fmt(data.elapsed_ms)} ms`;
 
         const qp = new URLSearchParams(window.location.search);
@@ -1133,68 +1258,6 @@
       renderEditPreview();
     });
 
-    TYPE_OPTIONS.forEach((t) => {
-      const opt = document.createElement('option');
-      opt.value = t;
-      opt.textContent = t;
-      editTypeSelect.appendChild(opt);
-    });
-
-    createAddColumnBtn.addEventListener('click', () => {
-      createColumnsWrap.appendChild(createColumnRow({ type: 'STRING' }));
-      renderCreatePreview();
-    });
-
-    [createScopeSelect, createTableNameInput, createIfNotExistsInput].forEach((el) => {
-      el.addEventListener('input', renderCreatePreview);
-    });
-
-    createRunBtn.addEventListener('click', async () => {
-      try {
-        const sql = buildCreateSql();
-        createRunBtn.disabled = true;
-        setComposerStatus(createStatus, 'Creating table...');
-        const data = await executeSql(sql);
-        setComposerStatus(createStatus, `Create succeeded in ${fmt(data.elapsed_ms)} ms.`, 'good');
-        if (currentView) loadView(currentInstance, currentView, null);
-      } catch (err) {
-        setComposerStatus(createStatus, err.message || String(err), 'bad');
-      } finally {
-        createRunBtn.disabled = false;
-      }
-    });
-
-    [editOperationSelect, editColumnSelect, editTargetColumnInput, editTypeSelect, editDirectivesInput, editCustomClauseInput]
-      .forEach((el) => el.addEventListener('input', renderEditPreview));
-
-    editTableSelect.addEventListener('input', async () => {
-      setSchemaContext(currentInstance, editTableSelect.value || null);
-      await loadEditColumns();
-      renderEditPreview();
-    });
-
-    editRunBtn.addEventListener('click', async () => {
-      try {
-        const sql = buildEditSql();
-        editRunBtn.disabled = true;
-        setComposerStatus(editStatus, 'Applying schema change...');
-        const data = await executeSql(sql);
-        setComposerStatus(editStatus, `Change applied in ${fmt(data.elapsed_ms)} ms.`, 'good');
-        await loadEditTables();
-        await loadEditColumns();
-        if (currentView) loadView(currentInstance, currentView, null);
-      } catch (err) {
-        setComposerStatus(editStatus, err.message || String(err), 'bad');
-      } finally {
-        editRunBtn.disabled = false;
-      }
-    });
-
-    createColumnsWrap.appendChild(createColumnRow({ name: 'id', type: 'LONG', nn: true }));
-    createColumnsWrap.appendChild(createColumnRow({ name: 'name', type: 'STRING' }));
-    renderCreatePreview();
-    renderEditPreview();
-
     queryCloseBtn.addEventListener('click', () => {
       queryPanel.classList.remove('open');
     });
@@ -1207,6 +1270,10 @@
         runQueryFromInput();
       }
     });
+
+    tableSearchInput.addEventListener('input', applyTableSearchFilter);
+    const tableWrapObserver = new MutationObserver(() => applyTableSearchFilter());
+    tableWrapObserver.observe(tableWrap, { childList: true, subtree: true });
 
     downloadDesignBtn.addEventListener('click', async () => {
       if (!currentInstance) {
