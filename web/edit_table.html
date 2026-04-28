@@ -30,15 +30,17 @@
       margin: 0 auto;
       padding: 26px;
     }
-    .hero {
+    .context-bar {
       background: color-mix(in srgb, var(--card) 92%, #f7fff9);
       border: 1px solid var(--line);
       border-radius: 18px;
       box-shadow: var(--shadow);
-      padding: 24px;
-      display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
-      gap: 18px;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
       margin-bottom: 20px;
     }
     .eyebrow {
@@ -49,23 +51,24 @@
       font-weight: 700;
       margin: 0 0 8px;
     }
-    .hero h1 {
-      margin: 0 0 8px;
-      font-family: "IBM Plex Serif", Georgia, serif;
-      font-size: 36px;
-      line-height: 1.08;
-    }
-    .hero p {
+    .context-title {
       margin: 0;
-      color: var(--muted);
-      max-width: 62ch;
-      line-height: 1.5;
+      font-family: "IBM Plex Serif", Georgia, serif;
+      font-size: 26px;
+      line-height: 1.1;
     }
-    .hero-links {
+    .context-copy {
+      margin: 6px 0 0;
+      color: var(--muted);
+      max-width: 78ch;
+      font-size: 14px;
+    }
+    .context-actions {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
-      align-content: start;
+      justify-content: flex-end;
+      align-items: center;
     }
     .btn, button, select, input, textarea { font: inherit; }
     .btn {
@@ -85,7 +88,7 @@
     }
     .layout {
       display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 18px;
       align-items: start;
     }
@@ -243,11 +246,12 @@
     .hidden { display: none !important; }
     .tiny { color: var(--muted); font-size: 12px; }
     @media (max-width: 1080px) {
-      .hero, .layout { grid-template-columns: 1fr; }
+      .layout { grid-template-columns: 1fr; }
     }
     @media (max-width: 760px) {
       .page { padding: 14px; }
-      .hero h1 { font-size: 30px; }
+      .context-title { font-size: 22px; }
+      .context-actions { justify-content: flex-start; }
       .grid { grid-template-columns: 1fr; }
       .col-3, .col-4, .col-6, .col-12 { grid-column: span 1; }
       .inline-actions { align-items: stretch; }
@@ -256,20 +260,17 @@
 </head>
 <body>
   <div class="page">
-    <section class="hero">
+    <section class="context-bar">
       <div>
         <p class="eyebrow">Schema Operations</p>
-        <h1>Edit Table Structure</h1>
-        <p>Build and run ALTER TABLE statements against any instance. Pick a table, choose an operation, review SQL preview, then execute through the live query API.</p>
+        <h1 class="context-title">Edit Table Structure</h1>
+        <p class="context-copy">Select an instance and table, choose the ALTER operation, review SQL, and apply the change through the live API.</p>
       </div>
-      <div>
-        <p class="eyebrow">Links</p>
-        <div class="hero-links">
+      <div class="context-actions">
           <a class="btn" id="backToViewer" href="#">Back to Viewer</a>
           <a class="btn" id="openCreateTable" href="#">Open Create Table</a>
           <a class="btn" href="https://doc.3forge.com/reference/ami_sql/" target="_blank" rel="noreferrer">AMI SQL Reference</a>
-        </div>
-        <p class="tiny" id="baseNote"></p>
+        <span class="tiny" id="baseNote"></span>
       </div>
     </section>
 

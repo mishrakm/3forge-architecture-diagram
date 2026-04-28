@@ -30,3 +30,215 @@ Traceback (most recent call last):
     self.socket.bind(self.server_address)
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
 OSError: [Errno 98] Address already in use
+nohup: ignoring input
+Traceback (most recent call last):
+  File "/home/3forge/3forge-architecture-diagram/scripts/live_view_server.py", line 1118, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/home/3forge/3forge-architecture-diagram/scripts/live_view_server.py", line 1097, in main
+    with http.server.ThreadingHTTPServer((args.host, args.port), handler) as httpd:
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib64/python3.13/socketserver.py", line 457, in __init__
+    self.server_bind()
+    ~~~~~~~~~~~~~~~~^^
+  File "/usr/lib64/python3.13/http/server.py", line 136, in server_bind
+    socketserver.TCPServer.server_bind(self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/usr/lib64/python3.13/socketserver.py", line 478, in server_bind
+    self.socket.bind(self.server_address)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 98] Address already in use
+nohup: ignoring input
+127.0.0.1 - - [28/Apr/2026 09:16:07] "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - - [28/Apr/2026 09:16:07] "GET /index.html HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:16:39] "GET /ami_flow_live.html?instance=Main+app&view=overview HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:16:39] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:16:39] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 9:16:39 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:16:40] "GET /api/instance/Main%20app/overview HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:16:50] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:16:50] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:20:15] "GET /ami_flow_live.html?instance=Main+app&view=overview HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:20:15] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:20:15] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 9:20:15 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:20:16] "GET /api/instance/Main%20app/overview HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:20:18] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:20:18] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:20:29] "GET /ami_flow_live.html?instance=Main+app&view=overview HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:20:29] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:20:29] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:20:30] code 404, message File not found
+192.192.100.101 - - [28/Apr/2026 09:20:30] "GET /favicon.ico HTTP/1.1" 404 -
+Apr 28, 2026 9:20:30 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:20:30] "GET /api/instance/Main%20app/overview HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:20:32] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:20:32] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:20:36] "GET /ami_flow_live.html?instance=Main+app&view=tables&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:20:36] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:20:36] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 9:20:36 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:20:36] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:20:54] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:20:54] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:41:01] "GET /ami_flow_live.html?instance=Main+app&view=tables&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:41:01] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:41:01] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 9:41:01 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:41:01] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:41:03] "GET /create_table.html?instance=Main+app&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:41:03] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:41:03] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.71 - - [28/Apr/2026 09:41:46] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.71 - - [28/Apr/2026 09:41:46] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 9:41:46 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:3280
+192.192.100.71 - - [28/Apr/2026 09:41:46] "GET /api/instance/TradeBook/tables HTTP/1.1" 200 -
+192.192.100.71 - - [28/Apr/2026 09:41:51] "GET /ami_flow_live.html?instance=TradeBook&view=tables&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 200 -
+192.192.100.71 - - [28/Apr/2026 09:41:51] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.71 - - [28/Apr/2026 09:41:51] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 9:41:51 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:3280
+192.192.100.71 - - [28/Apr/2026 09:41:51] "GET /api/instance/TradeBook/tables HTTP/1.1" 200 -
+192.192.100.71 - - [28/Apr/2026 09:41:53] "GET /create_table.html?instance=TradeBook&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 200 -
+192.192.100.71 - - [28/Apr/2026 09:41:53] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.71 - - [28/Apr/2026 09:41:53] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:43:34] "GET /edit_table.html?instance=Main+app&table=AudioMessages&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:43:34] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:43:34] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 9:43:34 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:43:34] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+Apr 28, 2026 9:43:34 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:43:34] "GET /api/instance/Main%20app/table_schema/AudioMessages HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:43:47] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:43:47] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:02] "GET /ami_flow_live.html?instance=Main+app&view=tables&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 304 -
+192.192.100.101 - - [28/Apr/2026 09:44:02] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:02] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 9:44:02 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:44:02] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:04] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:04] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:07] "GET /ami_flow_live.html?instance=Main+app&view=tables&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:07] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:07] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 9:44:07 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:44:07] code 404, message File not found
+192.192.100.101 - - [28/Apr/2026 09:44:07] "GET /favicon.ico HTTP/1.1" 404 -
+192.192.100.101 - - [28/Apr/2026 09:44:07] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:09] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:09] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:26] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:26] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 9:44:26 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:44:26] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+Apr 28, 2026 9:44:26 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:44:27] "GET /api/instance/Main%20app/table_schema/AudioMessages HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:32] "GET /ami_flow_live.html?instance=Main+app&view=tables&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:32] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:32] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 9:44:32 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:44:32] code 404, message File not found
+192.192.100.101 - - [28/Apr/2026 09:44:32] "GET /favicon.ico HTTP/1.1" 404 -
+192.192.100.101 - - [28/Apr/2026 09:44:32] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:33] "GET /ami_flow_live.html?instance=Main+app&view=tables&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:33] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:33] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 9:44:33 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:44:33] code 404, message File not found
+192.192.100.101 - - [28/Apr/2026 09:44:33] "GET /favicon.ico HTTP/1.1" 404 -
+192.192.100.101 - - [28/Apr/2026 09:44:33] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:36] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:44:36] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 9:44:37 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:44:37] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+Apr 28, 2026 9:44:37 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:44:37] "GET /api/instance/Main%20app/table_schema/AudioMessages HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:45:08] "GET /edit_table.html?instance=Main+app&table=AudioMessages&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:45:08] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:45:08] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 9:45:08 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:45:08] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+Apr 28, 2026 9:45:08 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:45:08] "GET /api/instance/Main%20app/table_schema/AudioMessages HTTP/1.1" 200 -
+127.0.0.1 - - [28/Apr/2026 09:48:12] "GET /ami_flow_live.html HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:48:26] "GET /ami_flow_live.html?instance=Main+app&view=tables&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:48:26] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:48:26] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 9:48:26 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:48:26] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+Apr 28, 2026 9:48:30 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:48:30] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+Apr 28, 2026 9:48:30 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:48:31] "GET /api/instance/Main%20app/table_schema/AudioMessages HTTP/1.1" 200 -
+Apr 28, 2026 9:48:53 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:48:53] "GET /api/instance/Main%20app/table_schema/tmpSells HTTP/1.1" 200 -
+Apr 28, 2026 9:49:27 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:49:27] "POST /api/instance/Main%20app/query HTTP/1.1" 200 -
+Apr 28, 2026 9:49:27 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:49:27] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:49:32] "GET /ami_flow_live.html?instance=Main+app&view=tables&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 304 -
+192.192.100.101 - - [28/Apr/2026 09:49:32] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:49:32] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 9:49:32 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:49:32] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+Apr 28, 2026 9:49:42 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:49:42] "GET /api/instance/Main%20app/describe/table/tavle1 HTTP/1.1" 200 -
+Apr 28, 2026 9:49:45 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:49:45] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+Apr 28, 2026 9:49:45 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:49:45] "GET /api/instance/Main%20app/table_schema/tavle1 HTTP/1.1" 200 -
+Apr 28, 2026 9:50:03 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:50:03] "POST /api/instance/Main%20app/query HTTP/1.1" 200 -
+Apr 28, 2026 9:50:03 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:50:03] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+Apr 28, 2026 9:50:03 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:50:03] "GET /api/instance/Main%20app/table_schema/tavle1 HTTP/1.1" 200 -
+Apr 28, 2026 9:50:03 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:50:03] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+127.0.0.1 - - [28/Apr/2026 09:52:44] "GET /ami_flow_live.html HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:52:57] "GET /ami_flow_live.html?instance=Main+app&view=tables&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:52:57] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:52:57] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 09:52:57] code 404, message File not found
+192.192.100.101 - - [28/Apr/2026 09:52:57] "GET /favicon.ico HTTP/1.1" 404 -
+Apr 28, 2026 9:52:57 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 09:52:57] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+Apr 28, 2026 9:53:29 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:3280
+192.192.100.101 - - [28/Apr/2026 09:53:30] "GET /api/instance/TradeBook/trigger_flows HTTP/1.1" 200 -
+Apr 28, 2026 9:53:32 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:3280
+192.192.100.101 - - [28/Apr/2026 09:53:35] "GET /api/instance/TradeBook/database_design HTTP/1.1" 200 -

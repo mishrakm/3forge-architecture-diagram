@@ -20,7 +20,7 @@ export AMI_DB_PASSWORD='your-password'
 Outputs:
 - `docs/generated/tables.md` (human-readable table catalog)
 - `docs/generated/tables.json` (raw machine-readable payload)
-- `docs/tables_dashboard.html` (unified browser dashboard: tables, schema, relationships, data flow, metrics, external mappings, trigger flow)
+- `web/tables_dashboard.html` (unified browser dashboard: tables, schema, relationships, data flow, metrics, external mappings, trigger flow)
 - `docs/generated/schema_catalog.md` and `docs/generated/schema_catalog.json` (column-level schema docs)
 - `docs/generated/relationships.md` and `docs/generated/relationships.json` (inferred table relationships)
 - `docs/generated/data_flow.md` and `docs/generated/data_flow.json` (data-flow category mapping)
@@ -40,7 +40,7 @@ Run:
 cd /home/3forge/3forge-architecture-diagram
 AMI_DB_PASSWORD='pwadmin123' /home/3forge/3forge-architecture-diagram/.venv/bin/python scripts/document_tables.py \
 	--instances-config ./instances.json \
-	--output-multi-dashboard ./docs/ami_flow_viewer.html \
+	--output-multi-dashboard ./web/ami_flow_viewer.html \
 	--output-multi-json ./docs/generated/ami_flow_viewer.json
 ```
 
@@ -69,7 +69,7 @@ If you want to open dashboard assets through HTTP with permissive CORS headers:
 
 ```bash
 cd /home/3forge/3forge-architecture-diagram
-/home/3forge/3forge-architecture-diagram/.venv/bin/python scripts/cors_server.py --port 8080 --dir docs
+/home/3forge/3forge-architecture-diagram/.venv/bin/python scripts/cors_server.py --port 8080 --dir web
 ```
 
 Then open:
@@ -86,7 +86,7 @@ cd /home/3forge/3forge-architecture-diagram
 export AMI_DB_PASSWORD='your-password'
 /home/3forge/3forge-architecture-diagram/.venv/bin/python scripts/live_view_server.py \
 	--port 8080 \
-	--dir docs \
+	--dir web \
 	--instances-config ./instances.json
 ```
 

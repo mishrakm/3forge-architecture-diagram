@@ -40,6 +40,44 @@
     .statusbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
     .statusbar .status { margin:0; }
     .status-actions { display:flex; align-items:center; gap:8px; }
+    .schema-studio { border:1px solid var(--line); border-radius:10px; background:#f8fcfd; padding:10px; margin-bottom:10px; display:grid; gap:8px; }
+    .schema-studio-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .schema-studio-title { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; }
+    .schema-studio-meta { display:flex; gap:8px; flex-wrap:wrap; }
+    .schema-chip { border:1px solid #cfe2e8; background:#eef7fa; color:#165468; border-radius:999px; padding:3px 8px; font-size:11px; }
+    .schema-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .schema-composer { display:none; border:1px solid var(--line); border-radius:10px; background:#fff; margin-bottom:10px; overflow:hidden; }
+    .schema-composer.open { display:block; }
+    .schema-composer-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-bottom:1px solid var(--line); background:#f7fbfc; }
+    .schema-composer-title { margin:0; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; }
+    .schema-composer-tabs { display:flex; gap:8px; }
+    .schema-tab { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:8px; padding:5px 9px; font-size:12px; cursor:pointer; }
+    .schema-tab.active { background:var(--brand); color:#fff; border-color:var(--brand); }
+    .schema-composer-body { padding:10px; display:grid; gap:10px; }
+    .schema-grid { display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:8px; }
+    .schema-col-3 { grid-column:span 3; }
+    .schema-col-4 { grid-column:span 4; }
+    .schema-col-6 { grid-column:span 6; }
+    .schema-col-12 { grid-column:span 12; }
+    .schema-field { display:grid; gap:4px; }
+    .schema-field label { color:var(--muted); font-size:11px; text-transform:uppercase; }
+    .schema-field input, .schema-field select, .schema-field textarea { width:100%; border:1px solid #d8cfc2; border-radius:8px; padding:7px 9px; font-size:12px; background:#fff; color:var(--ink); }
+    .schema-field textarea { min-height:74px; resize:vertical; font-family:'Cascadia Code','Consolas','Courier New',monospace; }
+    .schema-columns { display:grid; gap:8px; }
+    .schema-row { border:1px solid var(--line); border-radius:8px; padding:8px; background:#fcfbf9; display:grid; grid-template-columns:1fr .8fr 1.2fr auto auto auto; gap:8px; align-items:center; }
+    .schema-check { display:inline-flex; align-items:center; gap:6px; font-size:12px; }
+    .schema-mini { border:1px solid #ebc5bc; background:#fff3ef; color:#9c2f1c; border-radius:8px; padding:6px 8px; font-size:12px; cursor:pointer; }
+    .schema-preview { margin:0; padding:12px; background:#1f2428; color:#f5f7fa; border-radius:8px; overflow:auto; white-space:pre-wrap; word-break:break-word; font:12px/1.45 'Cascadia Code','Consolas','Courier New',monospace; }
+    .schema-status { margin:0; padding:10px; border-radius:8px; border:1px solid #efcfab; background:#fff4e6; color:#8a4b08; font-size:12px; }
+    .schema-status.good { border-color:#a5d6ba; background:#ebfff3; color:#1f7a4f; }
+    .schema-status.bad { border-color:#efb3b3; background:#fff1f1; color:#b42318; }
+    .schema-actions-row { display:flex; gap:8px; flex-wrap:wrap; }
+    .schema-panel { display:none; }
+    .schema-panel.open { display:grid; gap:10px; }
+    #meta { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+    .meta-pill { display:inline-flex; gap:6px; align-items:center; border:1px solid var(--line); border-radius:999px; padding:4px 8px; background:#fcfbf9; font-size:11px; }
+    .meta-pill .n { color:var(--muted); text-transform:uppercase; }
+    .meta-pill .v { font-weight:700; max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .query-btn { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:8px; padding:5px 9px; font-size:12px; cursor:pointer; }
     .query-btn:hover { border-color:#cdbfae; }
     .query-panel { display:none; border:1px solid var(--line); border-radius:10px; padding:10px; background:#fcfbf9; margin-bottom:10px; }
@@ -74,7 +112,13 @@
     .action-link { cursor:pointer; color:var(--brand); background:none; border:none; font:inherit; font-size:11px; text-decoration:underline; padding:0 4px 0 0; }
     .action-link:hover { opacity:.75; }
     .action-link.drop-btn { color:#a02020; }
-    @media (max-width: 980px) { .app { grid-template-columns:1fr; } .left { border-right:0; border-bottom:1px solid var(--line);} .meta{grid-template-columns:1fr 1fr;} }
+    @media (max-width: 980px) {
+      .app { grid-template-columns:1fr; }
+      .left { border-right:0; border-bottom:1px solid var(--line); }
+      .meta { grid-template-columns:1fr 1fr; }
+      .schema-row { grid-template-columns:1fr; }
+      .schema-col-3, .schema-col-4, .schema-col-6, .schema-col-12 { grid-column:span 12; }
+    }
   </style>
 </head>
 <body>
@@ -98,6 +142,20 @@
             <button class="query-btn" id="executeQueryBtn" type="button">Execute Query</button>
           </div>
         </div>
+        <section class="schema-studio">
+          <div class="schema-studio-head">
+            <span class="schema-studio-title">Schema Studio</span>
+            <div class="schema-studio-meta">
+              <span class="schema-chip" id="schemaInstanceChip">Instance: -</span>
+              <span class="schema-chip" id="schemaTableChip">Table: -</span>
+            </div>
+          </div>
+          <div class="schema-actions">
+            <button class="query-btn" id="schemaCreateBtn" type="button">Create New Table</button>
+            <button class="query-btn" id="schemaEditBtn" type="button">Open Table Editor</button>
+            <button class="query-btn" id="schemaEditSelectedBtn" type="button" disabled>Edit Selected Table</button>
+          </div>
+        </section>
         <div class="query-panel" id="queryPanel">
           <p class="query-help">Run one SQL statement at a time. Press Ctrl+Enter to execute.</p>
           <textarea class="query-input" id="queryInput" spellcheck="false" placeholder="show triggers"></textarea>
@@ -117,6 +175,86 @@
           </div>
         </div>
         <div class="meta" id="meta"></div>
+        <section class="schema-composer" id="schemaComposer">
+          <div class="schema-composer-head">
+            <p class="schema-composer-title" id="schemaComposerTitle">Schema Composer</p>
+            <div class="schema-composer-tabs">
+              <button class="schema-tab active" id="schemaTabCreate" type="button">Create</button>
+              <button class="schema-tab" id="schemaTabEdit" type="button">Edit</button>
+              <button class="query-close" id="schemaComposerCloseBtn" type="button">Close</button>
+            </div>
+          </div>
+          <div class="schema-composer-body">
+            <section class="schema-panel open" id="schemaCreatePanel">
+              <div class="schema-grid">
+                <div class="schema-field schema-col-4">
+                  <label for="createScopeSelect">Scope</label>
+                  <select id="createScopeSelect"><option value="PUBLIC">PUBLIC</option><option value="TEMPORARY">TEMPORARY</option></select>
+                </div>
+                <div class="schema-field schema-col-4">
+                  <label for="createTableNameInput">Table Name</label>
+                  <input id="createTableNameInput" type="text" placeholder="new_table">
+                </div>
+                <div class="schema-field schema-col-4">
+                  <label class="schema-check"><input id="createIfNotExistsInput" type="checkbox"> IF NOT EXISTS</label>
+                </div>
+              </div>
+              <div class="schema-columns" id="createColumnsWrap"></div>
+              <div class="schema-actions-row">
+                <button class="query-btn" id="createAddColumnBtn" type="button">Add Field</button>
+              </div>
+              <pre class="schema-preview" id="createSqlPreview"></pre>
+              <p class="schema-status" id="createStatus">Ready to build CREATE TABLE statement.</p>
+              <div class="schema-actions-row">
+                <button class="query-run" id="createRunBtn" type="button">Create Table</button>
+              </div>
+            </section>
+
+            <section class="schema-panel" id="schemaEditPanel">
+              <div class="schema-grid">
+                <div class="schema-field schema-col-4">
+                  <label for="editTableSelect">Table</label>
+                  <select id="editTableSelect"></select>
+                </div>
+                <div class="schema-field schema-col-4">
+                  <label for="editOperationSelect">Operation</label>
+                  <select id="editOperationSelect">
+                    <option value="ADD">ADD</option>
+                    <option value="DROP">DROP</option>
+                    <option value="RENAME">RENAME</option>
+                    <option value="MODIFY">CHANGE TYPE</option>
+                    <option value="CUSTOM">CUSTOM</option>
+                  </select>
+                </div>
+                <div class="schema-field schema-col-4">
+                  <label for="editColumnSelect">Column</label>
+                  <select id="editColumnSelect"></select>
+                </div>
+                <div class="schema-field schema-col-4">
+                  <label for="editTargetColumnInput">Target/New Column</label>
+                  <input id="editTargetColumnInput" type="text" placeholder="new_col">
+                </div>
+                <div class="schema-field schema-col-4">
+                  <label for="editTypeSelect">Type</label>
+                  <select id="editTypeSelect"></select>
+                </div>
+                <div class="schema-field schema-col-4">
+                  <label for="editDirectivesInput">Directives</label>
+                  <input id="editDirectivesInput" type="text" placeholder="NONULL / NOBROADCAST / BITMAP">
+                </div>
+                <div class="schema-field schema-col-12">
+                  <label for="editCustomClauseInput">Custom Clause</label>
+                  <textarea id="editCustomClauseInput" placeholder="Example: ADD qty LONG"></textarea>
+                </div>
+              </div>
+              <pre class="schema-preview" id="editSqlPreview"></pre>
+              <p class="schema-status" id="editStatus">Ready to build ALTER TABLE statement.</p>
+              <div class="schema-actions-row">
+                <button class="query-run" id="editRunBtn" type="button">Apply Change</button>
+              </div>
+            </section>
+          </div>
+        </section>
         <div id="tableWrap"></div>
       </section>
     </main>
@@ -132,6 +270,36 @@
     const executeQueryBtn = document.getElementById('executeQueryBtn');
     const createTableBtn = document.getElementById('createTableBtn');
     const editTableBtn = document.getElementById('editTableBtn');
+    const schemaInstanceChip = document.getElementById('schemaInstanceChip');
+    const schemaTableChip = document.getElementById('schemaTableChip');
+    const schemaCreateBtn = document.getElementById('schemaCreateBtn');
+    const schemaEditBtn = document.getElementById('schemaEditBtn');
+    const schemaEditSelectedBtn = document.getElementById('schemaEditSelectedBtn');
+    const schemaComposer = document.getElementById('schemaComposer');
+    const schemaComposerTitle = document.getElementById('schemaComposerTitle');
+    const schemaComposerCloseBtn = document.getElementById('schemaComposerCloseBtn');
+    const schemaTabCreate = document.getElementById('schemaTabCreate');
+    const schemaTabEdit = document.getElementById('schemaTabEdit');
+    const schemaCreatePanel = document.getElementById('schemaCreatePanel');
+    const schemaEditPanel = document.getElementById('schemaEditPanel');
+    const createScopeSelect = document.getElementById('createScopeSelect');
+    const createTableNameInput = document.getElementById('createTableNameInput');
+    const createIfNotExistsInput = document.getElementById('createIfNotExistsInput');
+    const createColumnsWrap = document.getElementById('createColumnsWrap');
+    const createAddColumnBtn = document.getElementById('createAddColumnBtn');
+    const createSqlPreview = document.getElementById('createSqlPreview');
+    const createStatus = document.getElementById('createStatus');
+    const createRunBtn = document.getElementById('createRunBtn');
+    const editTableSelect = document.getElementById('editTableSelect');
+    const editOperationSelect = document.getElementById('editOperationSelect');
+    const editColumnSelect = document.getElementById('editColumnSelect');
+    const editTargetColumnInput = document.getElementById('editTargetColumnInput');
+    const editTypeSelect = document.getElementById('editTypeSelect');
+    const editDirectivesInput = document.getElementById('editDirectivesInput');
+    const editCustomClauseInput = document.getElementById('editCustomClauseInput');
+    const editSqlPreview = document.getElementById('editSqlPreview');
+    const editStatus = document.getElementById('editStatus');
+    const editRunBtn = document.getElementById('editRunBtn');
     const downloadDesignBtn = document.getElementById('downloadDesignBtn');
     const queryPanel = document.getElementById('queryPanel');
     const queryInput = document.getElementById('queryInput');
@@ -139,6 +307,7 @@
     const queryTimeoutInput = document.getElementById('queryTimeoutInput');
     const queryRunBtn = document.getElementById('queryRunBtn');
     const queryCloseBtn = document.getElementById('queryCloseBtn');
+    const TYPE_OPTIONS = ['STRING','LONG','INT','DOUBLE','FLOAT','BOOLEAN','UTC','UTCN','DATE','SHORT','BYTE','CHAR','ENUM','BINARY','BIGDECIMAL','BIGINTEGER','COMPLEX','UUID'];
 
     const params = new URLSearchParams(window.location.search);
     const targetInstance = (params.get('instance') || '').toLowerCase();
@@ -194,7 +363,191 @@
     // colDescribeMap: plain object mapping colIndex (number) -> AMI object type string
     let currentInstance = null;
     let currentView = null;
+    let selectedTable = null;
+    let composerMode = 'create';
+    let editTableColumns = [];
     let _ddlRowCounter = 0;
+
+    const setSchemaContext = (instanceName, tableName) => {
+      if (instanceName !== undefined) currentInstance = instanceName;
+      if (tableName !== undefined) selectedTable = tableName;
+      schemaInstanceChip.textContent = `Instance: ${currentInstance || '-'}`;
+      schemaTableChip.textContent = `Table: ${selectedTable || '-'}`;
+      schemaEditSelectedBtn.disabled = !(currentInstance && selectedTable);
+    };
+
+    const normalizeIdentifier = (value, label) => {
+      const raw = String(value || '').trim();
+      if (!raw) throw new Error(`${label} is required.`);
+      if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(raw)) return raw;
+      throw new Error(`${label} must use letters, numbers, and underscores.`);
+    };
+
+    const setComposerStatus = (el, text, kind = '') => {
+      el.textContent = text;
+      el.className = `schema-status${kind ? ` ${kind}` : ''}`;
+    };
+
+    const setComposerMode = (mode) => {
+      composerMode = mode;
+      const isCreate = mode === 'create';
+      schemaTabCreate.classList.toggle('active', isCreate);
+      schemaTabEdit.classList.toggle('active', !isCreate);
+      schemaCreatePanel.classList.toggle('open', isCreate);
+      schemaEditPanel.classList.toggle('open', !isCreate);
+      schemaComposerTitle.textContent = isCreate
+        ? 'Schema Composer - Create Table'
+        : `Schema Composer - Edit ${selectedTable || 'Table'}`;
+      if (!isCreate) renderEditPreview();
+      if (isCreate) renderCreatePreview();
+    };
+
+    const createColumnRow = (seed = {}) => {
+      const row = document.createElement('div');
+      row.className = 'schema-row';
+      const options = TYPE_OPTIONS.map((t) => `<option value="${t}"${(seed.type || 'STRING') === t ? ' selected' : ''}>${t}</option>`).join('');
+      row.innerHTML = `
+        <input class="c-name" type="text" placeholder="field_name" value="${esc(seed.name || '')}">
+        <select class="c-type">${options}</select>
+        <input class="c-dir" type="text" placeholder="BITMAP / COMPACT ASCII" value="${esc(seed.dir || '')}">
+        <label class="schema-check"><input class="c-nn" type="checkbox" ${seed.nn ? 'checked' : ''}> NONULL</label>
+        <label class="schema-check"><input class="c-nb" type="checkbox" ${seed.nb ? 'checked' : ''}> NOBROADCAST</label>
+        <button class="schema-mini" type="button">Remove</button>
+      `;
+      row.querySelectorAll('input, select').forEach((el) => el.addEventListener('input', renderCreatePreview));
+      row.querySelector('.schema-mini').addEventListener('click', () => {
+        row.remove();
+        if (!createColumnsWrap.children.length) createColumnsWrap.appendChild(createColumnRow({ type: 'STRING' }));
+        renderCreatePreview();
+      });
+      return row;
+    };
+
+    const collectCreateColumns = () => {
+      const rows = [...createColumnsWrap.querySelectorAll('.schema-row')];
+      if (!rows.length) throw new Error('At least one field is required.');
+      return rows.map((row, i) => {
+        const name = normalizeIdentifier(row.querySelector('.c-name').value, `Field ${i + 1} name`);
+        const type = String(row.querySelector('.c-type').value || 'STRING').toUpperCase();
+        const dir = String(row.querySelector('.c-dir').value || '').trim();
+        const parts = [name, type];
+        if (row.querySelector('.c-nn').checked) parts.push('NONULL');
+        if (row.querySelector('.c-nb').checked) parts.push('NOBROADCAST');
+        if (dir) parts.push(dir);
+        return parts.join(' ');
+      });
+    };
+
+    const buildCreateSql = () => {
+      const table = normalizeIdentifier(createTableNameInput.value, 'Table name');
+      const scope = createScopeSelect.value === 'TEMPORARY' ? 'CREATE TEMPORARY TABLE' : 'CREATE PUBLIC TABLE';
+      const ifNotExists = createIfNotExistsInput.checked ? ' IF NOT EXISTS' : '';
+      const cols = collectCreateColumns();
+      return `${scope}${ifNotExists} ${table} (${cols.join(', ')})`;
+    };
+
+    const renderCreatePreview = () => {
+      try {
+        createSqlPreview.textContent = buildCreateSql();
+      } catch (err) {
+        createSqlPreview.textContent = err.message || String(err);
+      }
+    };
+
+    const buildEditSql = () => {
+      const table = normalizeIdentifier(editTableSelect.value || selectedTable, 'Table');
+      const op = editOperationSelect.value;
+      let clause = '';
+      if (op === 'ADD') {
+        const target = normalizeIdentifier(editTargetColumnInput.value, 'Target column');
+        const type = String(editTypeSelect.value || 'STRING').toUpperCase();
+        const dir = String(editDirectivesInput.value || '').trim();
+        clause = `ADD ${target} ${type}${dir ? ` ${dir}` : ''}`;
+      } else if (op === 'DROP') {
+        clause = `DROP ${normalizeIdentifier(editColumnSelect.value, 'Column')}`;
+      } else if (op === 'RENAME') {
+        clause = `RENAME ${normalizeIdentifier(editColumnSelect.value, 'Current column')} TO ${normalizeIdentifier(editTargetColumnInput.value, 'New column')}`;
+      } else if (op === 'MODIFY') {
+        const col = normalizeIdentifier(editColumnSelect.value, 'Column');
+        const type = String(editTypeSelect.value || 'STRING').toUpperCase();
+        const dir = String(editDirectivesInput.value || '').trim();
+        clause = `MODIFY ${col} AS ${col} ${type}${dir ? ` ${dir}` : ''}`;
+      } else {
+        const custom = String(editCustomClauseInput.value || '').trim();
+        if (!custom) throw new Error('Custom clause is required.');
+        clause = custom;
+      }
+      return `ALTER TABLE ${table} ${clause}`;
+    };
+
+    const renderEditPreview = () => {
+      const custom = editOperationSelect.value === 'CUSTOM';
+      editCustomClauseInput.parentElement.style.display = custom ? 'grid' : 'none';
+      try {
+        editSqlPreview.textContent = buildEditSql();
+      } catch (err) {
+        editSqlPreview.textContent = err.message || String(err);
+      }
+    };
+
+    const executeSql = async (sql) => {
+      const res = await fetch(apiUrl(`/api/instance/${encodeURIComponent(currentInstance)}/query`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sql }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    };
+
+    const loadEditTables = async () => {
+      if (!currentInstance) return;
+      const data = await fetchJsonChecked(apiUrl(`/api/instance/${encodeURIComponent(currentInstance)}/tables`));
+      const rows = ((data.payload || {}).rows || []);
+      const names = rows.map((r) => String(r.name || (Array.isArray(r) ? r[0] : '') || '')).filter(Boolean);
+      editTableSelect.innerHTML = names.map((name) => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
+      if (selectedTable && names.includes(selectedTable)) editTableSelect.value = selectedTable;
+      if (!selectedTable && names.length) selectedTable = names[0];
+    };
+
+    const loadEditColumns = async () => {
+      const table = String(editTableSelect.value || selectedTable || '').trim();
+      if (!currentInstance || !table) return;
+      const data = await fetchJsonChecked(apiUrl(`/api/instance/${encodeURIComponent(currentInstance)}/table_schema/${encodeURIComponent(table)}`));
+      editTableColumns = (((data.schema || {}).columns) || []).map((c) => ({ name: String(c.name || ''), type: String(c.type || 'STRING').toUpperCase() })).filter((c) => c.name);
+      editColumnSelect.innerHTML = editTableColumns.map((c) => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+      if (editTableColumns.length && !editTargetColumnInput.value) editTargetColumnInput.value = editTableColumns[0].name;
+    };
+
+    const openSchemaComposer = async (mode, tableName = null) => {
+      if (!currentInstance) {
+        alert('Select an instance first.');
+        return;
+      }
+      if (tableName) setSchemaContext(currentInstance, tableName);
+      schemaComposer.classList.add('open');
+      setComposerMode(mode === 'edit' ? 'edit' : 'create');
+      try {
+        if (composerMode === 'edit') {
+          await loadEditTables();
+          await loadEditColumns();
+          renderEditPreview();
+        } else {
+          renderCreatePreview();
+        }
+      } catch (err) {
+        if (composerMode === 'edit') {
+          setComposerStatus(editStatus, err.message || String(err), 'bad');
+        } else {
+          setComposerStatus(createStatus, err.message || String(err), 'bad');
+        }
+      }
+      schemaComposer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    const openCreateTable = () => openSchemaComposer('create');
+    const openEditTable = (tableName = null) => openSchemaComposer('edit', tableName);
 
     const renderDescribable = (headers, rows, colDescribeMap, htmlCols = new Set()) => {
       const th = headers.map((h) => `<th>${h}</th>`).join('');
@@ -219,7 +572,7 @@
 
     const actionDrop = (objType, objName) => `<button class="action-link drop-btn" data-type="${esc(objType)}" data-name="${esc(objName)}">Drop</button>`;
     const apiUrl = (path) => `${liveApiBase}${path}`;
-    const actionEditTable = (instName, tblName) => `<a class="action-link" href="${liveApiBase}/edit_table.html?instance=${encodeURIComponent(instName)}&table=${encodeURIComponent(tblName)}&liveBase=${encodeURIComponent(liveApiBase)}" target="_blank">Edit Structure</a>`;
+    const actionEditTable = (_instName, tblName) => `<button class="action-link open-edit-btn" data-table="${esc(tblName)}">Edit Structure</button>`;
     const actionViewData = (instName, tblName) => `<a class="action-link" href="${liveApiBase}/table_data.html?instance=${encodeURIComponent(instName)}&table=${encodeURIComponent(tblName)}&liveBase=${encodeURIComponent(liveApiBase)}" target="_blank">View Data</a>`;
     const procedureRowObjectType = (row) => String(row[1] || '').toUpperCase() === 'METHOD' ? 'method' : 'procedure';
 
@@ -265,6 +618,13 @@
         } catch (err) {
           alert(`Drop failed: ${err.message || err}`);
         }
+      }
+
+      const editBtn = e.target.closest('.open-edit-btn');
+      if (editBtn && currentInstance) {
+        const tableName = editBtn.dataset.table || null;
+        setSchemaContext(currentInstance, tableName);
+        openEditTable(tableName);
       }
     });
 
@@ -495,7 +855,7 @@
     };
 
     const setMeta = (items) => {
-      meta.innerHTML = items.map(([n, v]) => `<div class="k"><div class="n">${esc(n)}</div><div class="v">${esc(fmt(v))}</div></div>`).join('');
+      meta.innerHTML = items.map(([n, v]) => `<span class="meta-pill"><span class="n">${esc(n)}:</span><span class="v">${esc(fmt(v))}</span></span>`).join('');
     };
 
     const renderSection = (view, data) => {
@@ -521,6 +881,10 @@
       }
 
       if (view === 'tables') {
+        const tableNames = (p.rows || []).map((t) => String(t.name || '')).filter(Boolean);
+        if (!selectedTable || !tableNames.includes(selectedTable)) {
+          setSchemaContext(currentInstance, tableNames[0] || null);
+        }
         tableWrap.innerHTML = renderDescribable(
           ['Table', 'Owner', 'Rows', 'Columns', 'Realtime', 'Actions'],
           (p.rows || []).map((t) => [t.name, t.owner, t.row_estimate, t.column_count, t.is_realtime,
@@ -623,7 +987,7 @@
     };
 
     const loadView = async (instanceName, view, btn) => {
-      currentInstance = instanceName;
+      setSchemaContext(instanceName, selectedTable);
       currentView = view;
       _ddlRowCounter = 0;
       title.textContent = `${instanceName} / ${view}`;
@@ -659,7 +1023,6 @@
           ['Rows', rowCount],
           ['Query Time (ms)', data.elapsed_ms],
           ['Generated (UTC)', data.generated_at_utc],
-          ['URL', data.url],
         ]);
         renderSection(view, data);
         statusEl.textContent = `Live mode: fetched in ${fmt(data.elapsed_ms)} ms`;
@@ -675,7 +1038,6 @@
           ['Rows', '-'],
           ['Query Time (ms)', '-'],
           ['Generated (UTC)', '-'],
-          ['URL', '-'],
         ]);
         renderError(err && err.message ? err.message : String(err));
         statusEl.textContent = 'Live mode: request failed';
@@ -754,19 +1116,84 @@
       queryInput.focus();
     });
 
-    createTableBtn.addEventListener('click', () => {
-      const next = new URL(`${liveApiBase}/create_table.html`);
-      if (currentInstance) next.searchParams.set('instance', currentInstance);
-      next.searchParams.set('liveBase', liveApiBase);
-      window.open(next.toString(), '_blank');
+    createTableBtn.addEventListener('click', openCreateTable);
+
+    editTableBtn.addEventListener('click', () => openEditTable(selectedTable));
+    schemaCreateBtn.addEventListener('click', openCreateTable);
+    schemaEditBtn.addEventListener('click', () => openEditTable(selectedTable));
+    schemaEditSelectedBtn.addEventListener('click', () => openEditTable(selectedTable));
+    schemaComposerCloseBtn.addEventListener('click', () => {
+      schemaComposer.classList.remove('open');
+    });
+    schemaTabCreate.addEventListener('click', () => setComposerMode('create'));
+    schemaTabEdit.addEventListener('click', async () => {
+      setComposerMode('edit');
+      await loadEditTables();
+      await loadEditColumns();
+      renderEditPreview();
     });
 
-    editTableBtn.addEventListener('click', () => {
-      const next = new URL(`${liveApiBase}/edit_table.html`);
-      if (currentInstance) next.searchParams.set('instance', currentInstance);
-      next.searchParams.set('liveBase', liveApiBase);
-      window.open(next.toString(), '_blank');
+    TYPE_OPTIONS.forEach((t) => {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = t;
+      editTypeSelect.appendChild(opt);
     });
+
+    createAddColumnBtn.addEventListener('click', () => {
+      createColumnsWrap.appendChild(createColumnRow({ type: 'STRING' }));
+      renderCreatePreview();
+    });
+
+    [createScopeSelect, createTableNameInput, createIfNotExistsInput].forEach((el) => {
+      el.addEventListener('input', renderCreatePreview);
+    });
+
+    createRunBtn.addEventListener('click', async () => {
+      try {
+        const sql = buildCreateSql();
+        createRunBtn.disabled = true;
+        setComposerStatus(createStatus, 'Creating table...');
+        const data = await executeSql(sql);
+        setComposerStatus(createStatus, `Create succeeded in ${fmt(data.elapsed_ms)} ms.`, 'good');
+        if (currentView) loadView(currentInstance, currentView, null);
+      } catch (err) {
+        setComposerStatus(createStatus, err.message || String(err), 'bad');
+      } finally {
+        createRunBtn.disabled = false;
+      }
+    });
+
+    [editOperationSelect, editColumnSelect, editTargetColumnInput, editTypeSelect, editDirectivesInput, editCustomClauseInput]
+      .forEach((el) => el.addEventListener('input', renderEditPreview));
+
+    editTableSelect.addEventListener('input', async () => {
+      setSchemaContext(currentInstance, editTableSelect.value || null);
+      await loadEditColumns();
+      renderEditPreview();
+    });
+
+    editRunBtn.addEventListener('click', async () => {
+      try {
+        const sql = buildEditSql();
+        editRunBtn.disabled = true;
+        setComposerStatus(editStatus, 'Applying schema change...');
+        const data = await executeSql(sql);
+        setComposerStatus(editStatus, `Change applied in ${fmt(data.elapsed_ms)} ms.`, 'good');
+        await loadEditTables();
+        await loadEditColumns();
+        if (currentView) loadView(currentInstance, currentView, null);
+      } catch (err) {
+        setComposerStatus(editStatus, err.message || String(err), 'bad');
+      } finally {
+        editRunBtn.disabled = false;
+      }
+    });
+
+    createColumnsWrap.appendChild(createColumnRow({ name: 'id', type: 'LONG', nn: true }));
+    createColumnsWrap.appendChild(createColumnRow({ name: 'name', type: 'STRING' }));
+    renderCreatePreview();
+    renderEditPreview();
 
     queryCloseBtn.addEventListener('click', () => {
       queryPanel.classList.remove('open');

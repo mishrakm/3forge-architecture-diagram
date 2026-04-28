@@ -30,49 +30,33 @@
       margin: 0 auto;
       padding: 28px;
     }
-    .hero {
-      display: grid;
-      grid-template-columns: 1.3fr .7fr;
-      gap: 20px;
-      margin-bottom: 22px;
-    }
-    .hero-card, .card {
+    .context-bar,
+    .card {
       background: color-mix(in srgb, var(--card) 94%, white);
       border: 1px solid var(--line);
       border-radius: 18px;
       box-shadow: var(--shadow);
     }
-    .hero-card {
-      padding: 24px;
-      position: relative;
-      overflow: hidden;
+    .context-bar {
+      margin-bottom: 20px;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
     }
-    .hero-card::after {
-      content: "";
-      position: absolute;
-      inset: auto -80px -80px auto;
-      width: 220px;
-      height: 220px;
-      background: radial-gradient(circle, rgba(15,106,115,0.15), rgba(15,106,115,0));
-      pointer-events: none;
-    }
-    .hero h1 {
-      margin: 0 0 10px;
-      font-family: "IBM Plex Serif", Georgia, serif;
-      font-size: 38px;
-      line-height: 1.05;
-    }
-    .hero p {
+    .context-title {
       margin: 0;
-      color: var(--muted);
-      max-width: 62ch;
-      line-height: 1.5;
+      font-family: "IBM Plex Serif", Georgia, serif;
+      font-size: 26px;
+      line-height: 1.1;
     }
-    .hero-side {
-      padding: 20px;
-      display: grid;
-      gap: 12px;
-      align-content: start;
+    .context-copy {
+      margin: 6px 0 0;
+      color: var(--muted);
+      max-width: 78ch;
+      font-size: 14px;
     }
     .eyebrow {
       font-size: 12px;
@@ -82,10 +66,12 @@
       margin-bottom: 10px;
       font-weight: 700;
     }
-    .hero-links {
+    .context-actions {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
+      justify-content: flex-end;
+      align-items: center;
     }
     .link-btn, .btn, button, select, input, textarea {
       font: inherit;
@@ -108,7 +94,7 @@
     .btn.ghost { background: transparent; }
     .layout {
       display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 20px;
       align-items: start;
     }
@@ -254,11 +240,12 @@
     .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
     .hidden { display: none !important; }
     @media (max-width: 1100px) {
-      .hero, .layout { grid-template-columns: 1fr; }
+      .layout { grid-template-columns: 1fr; }
     }
     @media (max-width: 760px) {
       .page { padding: 16px; }
-      .hero h1 { font-size: 30px; }
+      .context-title { font-size: 22px; }
+      .context-actions { justify-content: flex-start; }
       .columns-head { display: none; }
       .column-row { grid-template-columns: 1fr; }
       .grid { grid-template-columns: 1fr; }
@@ -268,22 +255,17 @@
 </head>
 <body>
   <div class="page">
-    <section class="hero">
-      <article class="hero-card">
+    <section class="context-bar">
+      <div>
         <div class="eyebrow">Schema Builder</div>
-        <h1>Create a Table on Any Instance</h1>
-        <p>Build a scoped AMI table with fields, data types, and public-table options, then submit a single CREATE statement through the live API. This page supports both PUBLIC and TEMPORARY scope.</p>
-      </article>
-      <aside class="hero-side hero-card">
-        <div>
-          <div class="eyebrow">Links</div>
-          <div class="hero-links">
-            <a class="link-btn" id="backToViewer" href="#">Back to Viewer</a>
-            <a class="link-btn" href="https://doc.3forge.com/center/realtime_tables/?h=create+table" target="_blank" rel="noreferrer">3forge Create Table Docs</a>
-          </div>
-        </div>
-        <p class="tiny" id="baseNote"></p>
-      </aside>
+        <h1 class="context-title">Create Table</h1>
+        <p class="context-copy">Define fields and options, review the generated CREATE statement, and execute it against the selected instance.</p>
+      </div>
+      <div class="context-actions">
+        <a class="link-btn" id="backToViewer" href="#">Back to Viewer</a>
+        <a class="link-btn" href="https://doc.3forge.com/center/realtime_tables/?h=create+table" target="_blank" rel="noreferrer">Create Table Docs</a>
+        <span class="tiny" id="baseNote"></span>
+      </div>
     </section>
 
     <div class="layout">
