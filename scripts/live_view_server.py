@@ -75,7 +75,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0).")
     parser.add_argument("--port", type=int, default=8080, help="Bind port (default: 8080).")
-    parser.add_argument("--dir", default="docs", help="Directory to serve static files from.")
+    parser.add_argument("--dir", default="web", help="Directory to serve static files from.")
     parser.add_argument(
         "--instances-config",
         default=DEFAULTS["instances_config"],
