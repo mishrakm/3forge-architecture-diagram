@@ -1,0 +1,1123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trigger Designer — AMI Flow</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f6f3ed; --surface: #ffffff; --border: #e7dfd4; --border2: #ede7dc;
+      --accent: #0b728f; --accent2: #0d8eaf; --text: #2b2926; --muted: #6a635b;
+      --good: #1a7f37; --good-text: #196b30; --bad: #cf222e; --bad-text: #a8201c;
+      --warn: #9a6700; --warn-text: #7d5400;
+      --radius: 6px; --font: Segoe UI, Tahoma, system-ui, sans-serif;
+    }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 14px; min-height: 100vh; }
+
+    /* ── Layout ─────────────────────────────────────────────── */
+    .page { display: grid; grid-template-columns: 1fr 420px; gap: 0; height: 100vh; overflow: hidden; }
+    .form-col { overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+    .preview-col { background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+
+    /* ── Headers ─────────────────────────────────────────────── */
+    .page-header { display: flex; align-items: center; gap: 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    .page-header h1 { font-size: 18px; font-weight: 600; }
+    .back-link { color: var(--accent); text-decoration: none; font-size: 13px; }
+    .back-link:hover { text-decoration: underline; color: var(--accent2); }
+
+    /* ── Cards ───────────────────────────────────────────────── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+    .card-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
+
+    /* ── Form controls ───────────────────────────────────────── */
+    .field-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+    .field-row:last-child { margin-bottom: 0; }
+    .field-row label { font-size: 12px; color: var(--muted); font-weight: 500; }
+    .field-row label .req { color: var(--bad-text); }
+    .field-row label .hint { font-weight: 400; font-style: italic; }
+    input[type="text"], input[type="number"], select, textarea {
+      background: var(--bg); color: var(--text); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 7px 10px; font-size: 13px; font-family: var(--font); width: 100%;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 80px; font-family: 'Cascadia Code', 'Fira Code', monospace; }
+    select[multiple] { height: 100px; }
+    .inline-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .inline-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+    /* ── Checkboxes ──────────────────────────────────────────── */
+    .check-row { display: flex; align-items: center; gap: 8px; }
+    .check-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); }
+    .check-row label { font-size: 13px; color: var(--text); cursor: pointer; }
+    .check-row .hint { font-size: 11px; color: var(--muted); margin-left: 4px; }
+
+    /* ── Type tabs ───────────────────────────────────────────── */
+    .type-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+    .type-tab { background: none; border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 14px;
+      color: var(--muted); font-size: 13px; cursor: pointer; transition: all .15s; }
+    .type-tab:hover { border-color: var(--accent2); color: var(--accent2); }
+    .type-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+    .type-desc { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--bg); border-radius: 0 var(--radius) var(--radius) 0; }
+
+    /* ── Mapping rows ────────────────────────────────────────── */
+    .mapping-list { display: flex; flex-direction: column; gap: 6px; }
+    .mapping-row { display: grid; gap: 6px; align-items: center; }
+    .mapping-row.map-tgt-eq-src  { grid-template-columns: 1fr auto 1fr auto; }
+    .mapping-row.map-cond        { grid-template-columns: 1fr auto 1fr auto auto; }
+    .mapping-row.map-agg         { grid-template-columns: 1fr auto 100px 1fr auto; }
+    .mapping-row.map-free        { grid-template-columns: 1fr auto; }
+    .eq-label { font-weight: 600; color: var(--muted); font-size: 13px; text-align: center; }
+    .rm-btn { background: none; border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--bad-text); padding: 4px 8px; cursor: pointer; font-size: 13px; white-space: nowrap; }
+    .rm-btn:hover { background: rgba(207,34,46,.10); }
+    .add-btn { background: none; border: 1px dashed var(--border); border-radius: var(--radius);
+      color: var(--accent); padding: 7px 12px; cursor: pointer; font-size: 13px; width: 100%; margin-top: 6px; }
+    .add-btn:hover { background: rgba(11,114,143,.08); border-color: var(--accent); }
+
+    /* ── Section panels (shown by type) ─────────────────────── */
+    .type-section { display: none; flex-direction: column; gap: 14px; }
+    .type-section.active { display: flex; }
+
+    /* ── Preview panel ───────────────────────────────────────── */
+    .preview-header { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .preview-header h2 { font-size: 14px; font-weight: 600; }
+    .preview-body { flex: 1; overflow: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+    #sqlPreview { flex: 1; background: #faf8f5; color: #1a5c2e; border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 12px; font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 12px; line-height: 1.7; resize: none; min-height: 240px; }
+
+    /* ── Status / errors ─────────────────────────────────────── */
+    .status-msg { padding: 8px 12px; border-radius: var(--radius); font-size: 13px; display: none; }
+    .status-msg.good { background: rgba(26,127,55,.10); border: 1px solid var(--good); color: var(--good-text); display: block; }
+    .status-msg.bad  { background: rgba(207,34,46,.10);  border: 1px solid var(--bad);  color: var(--bad-text);  display: block; }
+    .status-msg.info { background: rgba(11,114,143,.10); border: 1px solid var(--accent); color: var(--accent); display: block; }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn { border-radius: var(--radius); padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #0a8fad; }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-secondary { background: none; border: 1px solid var(--border); color: var(--text); }
+    .btn-secondary:hover { border-color: var(--muted); }
+    .btn-danger { background: none; border: 1px solid var(--bad); color: var(--bad-text); }
+    .btn-danger:hover { background: rgba(207,34,46,.10); }
+
+    /* ── Result table ────────────────────────────────────────── */
+    .result-wrap { border: 1px solid var(--border); border-radius: var(--radius); overflow: auto; max-height: 240px; }
+    .result-wrap table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .result-wrap th { background: var(--border2); padding: 6px 8px; text-align: left; font-weight: 600; position: sticky; top: 0; }
+    .result-wrap td { padding: 5px 8px; border-top: 1px solid var(--border2); font-family: monospace; white-space: pre; }
+    .result-info { font-size: 11px; color: var(--muted); }
+
+    /* ── Column hint panels ──────────────────────────────────── */
+    .col-hint { margin-top: 10px; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius); font-size: 11px; display: none; }
+    .col-hint.visible { display: block; }
+    .col-hint-title { font-weight: 600; color: var(--accent); margin-bottom: 6px; }
+    .col-chip-list { display: flex; flex-wrap: wrap; gap: 4px; }
+    .col-chip { background: #eef7fa; border: 1px solid #cfe2e8; border-radius: 4px; padding: 2px 7px; font-family: monospace; font-size: 11px; cursor: pointer; color: #165468; white-space: nowrap; transition: background .15s; }
+    .col-chip:hover { background: #d6eef5; border-color: var(--accent); color: var(--accent); }
+
+    @media (max-width: 900px) {
+      .page { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+      .preview-col { border-left: none; border-top: 1px solid var(--border); max-height: 380px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ═══ FORM COLUMN ════════════════════════════════════════════ -->
+  <div class="form-col">
+
+    <!-- Header -->
+    <div class="page-header">
+      <a class="back-link" id="backLink" href="ami_flow_live.html">← Back to AMI Flow</a>
+      <h1>Trigger Designer</h1>
+    </div>
+
+    <!-- Instance selector -->
+    <div class="card">
+      <div class="card-title">Connection</div>
+      <div class="inline-row">
+        <div class="field-row">
+          <label>Instance <span class="req">*</span></label>
+          <select id="instanceSel"><option value="">Loading…</option></select>
+        </div>
+        <div class="field-row">
+          <label>Trigger Name <span class="req">*</span></label>
+          <input id="triggerName" type="text" placeholder="e.g. MyTrigger">
+        </div>
+      </div>
+      <div class="field-row" style="margin-top:10px;">
+        <label>Priority <span class="hint">(optional – lower number runs first)</span></label>
+        <input id="triggerPriority" type="number" placeholder="0" style="width:120px;">
+      </div>
+    </div>
+
+    <!-- Trigger type -->
+    <div class="card">
+      <div class="card-title">Trigger Type <span class="req">*</span></div>
+      <div class="type-tabs">
+        <button class="type-tab active" data-type="AMISCRIPT">AmiScript</button>
+        <button class="type-tab" data-type="AGGREGATE">Aggregate</button>
+        <button class="type-tab" data-type="PROJECTION">Projection</button>
+        <button class="type-tab" data-type="JOIN">Join</button>
+        <button class="type-tab" data-type="DECORATE">Decorate</button>
+        <button class="type-tab" data-type="RELAY">Relay</button>
+      </div>
+      <div id="typeDesc" class="type-desc"></div>
+    </div>
+
+    <!-- ── AMISCRIPT ──────────────────────────────────────────── -->
+    <div class="type-section active" id="sec-AMISCRIPT">
+      <div class="card">
+        <div class="card-title">Source Table</div>
+        <div class="field-row">
+          <label>Table <span class="req">*</span> <span class="hint">— the table that fires this trigger</span></label>
+          <select id="ami-table"><option value="">— select instance first —</option></select>
+        </div>
+        <div class="col-hint" id="ami-col-hint">
+          <div class="col-hint-title" id="ami-col-hint-title">Available columns — click to copy</div>
+          <div class="col-chip-list" id="ami-col-chips"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Trigger Events <span class="hint">(at least one required)</span></div>
+
+        <div class="field-row">
+          <label>onInsertingScript <span class="hint">— runs BEFORE insert; return false to cancel</span></label>
+          <textarea id="ami-onInsertingScript" placeholder='insert into AlertTable(type,id) values("NEW",id)'></textarea>
+        </div>
+        <div class="field-row">
+          <label>onInsertedScript <span class="hint">— runs AFTER insert</span></label>
+          <textarea id="ami-onInsertedScript" placeholder="// post-insert logic"></textarea>
+        </div>
+        <div class="field-row">
+          <label>onUpdatingScript <span class="hint">— runs BEFORE update; use old_col / new_col variables; return false to cancel</span></label>
+          <textarea id="ami-onUpdatingScript" placeholder='insert into AlertTable(type,diff) values("CHANGE", new_price - old_price)'></textarea>
+        </div>
+        <div class="field-row">
+          <label>onUpdatedScript <span class="hint">— runs AFTER update</span></label>
+          <textarea id="ami-onUpdatedScript" placeholder="// post-update logic"></textarea>
+        </div>
+        <div class="field-row">
+          <label>onDeletingScript <span class="hint">— runs BEFORE delete; return false to cancel</span></label>
+          <textarea id="ami-onDeletingScript" placeholder='insert into AlertTable(type,id) values("DELETED",id)'></textarea>
+        </div>
+        <div class="field-row">
+          <label>onStartupScript <span class="hint">— runs once when trigger is created/started</span></label>
+          <textarea id="ami-onStartupScript" placeholder="// initialization logic"></textarea>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Advanced Options</div>
+        <div class="field-row">
+          <label>vars <span class="hint">— shared variables, comma-delimited: type varname, type varname2</span></label>
+          <input id="ami-vars" type="text" placeholder="int counter, String lastSym">
+        </div>
+        <div class="field-row">
+          <label>rowVar <span class="hint">— name of the row map variable (read-only map of current row)</span></label>
+          <input id="ami-rowVar" type="text" placeholder="_row">
+        </div>
+        <div class="check-row" style="margin-top:8px;">
+          <input type="checkbox" id="ami-canMutateRow">
+          <label for="ami-canMutateRow">canMutateRow
+            <span class="hint">— changes in onInsertingScript/onUpdatingScript write back to the row</span>
+          </label>
+        </div>
+      </div>
+    </div><!-- /AMISCRIPT -->
+
+    <!-- ── AGGREGATE ──────────────────────────────────────────── -->
+    <div class="type-section" id="sec-AGGREGATE">
+      <div class="card">
+        <div class="card-title">Tables</div>
+        <div class="inline-row">
+          <div class="field-row">
+            <label>Source Table <span class="req">*</span></label>
+            <select id="agg-source"><option value="">— select —</option></select>
+          </div>
+          <div class="field-row">
+            <label>Target Table <span class="req">*</span> <span class="hint">will be cleared &amp; rebuilt</span></label>
+            <select id="agg-target"><option value="">— select —</option></select>
+          </div>
+        </div>
+        <div class="col-hint" id="agg-col-hint">
+          <div class="col-hint-title" id="agg-col-hint-title"></div>
+          <div class="col-chip-list" id="agg-col-chips"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Group By <span class="hint">— targetCol = sourceExpression</span></div>
+        <div class="mapping-list" id="agg-groupby-list"></div>
+        <button class="add-btn" id="agg-groupby-add">+ Add Group By</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Selects / Aggregations <span class="hint">— targetCol = aggregateFn(sourceExpr)</span></div>
+        <div class="mapping-list" id="agg-select-list"></div>
+        <button class="add-btn" id="agg-select-add">+ Add Aggregate Column</button>
+        <div style="margin-top:10px;font-size:11px;color:var(--muted);">
+          Supported aggregate functions: count, countUnique, first, last, max, min, stdev, stdevs, sum, var
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Options</div>
+        <div class="check-row">
+          <input type="checkbox" id="agg-allowExternalUpdates">
+          <label for="agg-allowExternalUpdates">allowExternalUpdates
+            <span class="hint">— allow other processes to UPDATE target rows (use with caution)</span>
+          </label>
+        </div>
+      </div>
+    </div><!-- /AGGREGATE -->
+
+    <!-- ── PROJECTION ─────────────────────────────────────────── -->
+    <div class="type-section" id="sec-PROJECTION">
+      <div class="card">
+        <div class="card-title">Tables</div>
+        <div class="field-row">
+          <label>Source Tables <span class="req">*</span> <span class="hint">— one or more; result is UNION of matching rows</span></label>
+          <select id="proj-sources" multiple></select>
+          <span style="font-size:11px;color:var(--muted);margin-top:3px;">Hold Ctrl/Cmd to select multiple</span>
+        </div>
+        <div class="field-row" style="margin-top:10px;">
+          <label>Target Table <span class="req">*</span></label>
+          <select id="proj-target"><option value="">— select —</option></select>
+        </div>
+        <div class="col-hint" id="proj-col-hint">
+          <div class="col-hint-title" id="proj-col-hint-title"></div>
+          <div class="col-chip-list" id="proj-col-chips"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Where Conditions <span class="hint">— filter rows (same-table only; no cross-table refs)</span></div>
+        <div class="mapping-list" id="proj-where-list"></div>
+        <button class="add-btn" id="proj-where-add">+ Add Where Condition</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Selects <span class="hint">— targetCol = sourceExpression</span></div>
+        <div class="mapping-list" id="proj-select-list"></div>
+        <button class="add-btn" id="proj-select-add">+ Add Column Mapping</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Options</div>
+        <div class="check-row">
+          <input type="checkbox" id="proj-allowExternalUpdates">
+          <label for="proj-allowExternalUpdates">allowExternalUpdates</label>
+        </div>
+      </div>
+    </div><!-- /PROJECTION -->
+
+    <!-- ── JOIN ──────────────────────────────────────────────── -->
+    <div class="type-section" id="sec-JOIN">
+      <div class="card">
+        <div class="card-title">Tables</div>
+        <div class="inline-row-3">
+          <div class="field-row">
+            <label>Left Table <span class="req">*</span></label>
+            <select id="join-left"><option value="">— select —</option></select>
+          </div>
+          <div class="field-row">
+            <label>Right Table <span class="req">*</span></label>
+            <select id="join-right"><option value="">— select —</option></select>
+          </div>
+          <div class="field-row">
+            <label>Target Table <span class="req">*</span></label>
+            <select id="join-target"><option value="">— select —</option></select>
+          </div>
+        </div>
+        <div class="col-hint" id="join-col-hint">
+          <div class="col-hint-title" id="join-col-hint-title"></div>
+          <div class="col-chip-list" id="join-col-chips"></div>
+        </div>
+        <div class="field-row" style="margin-top:10px;">
+          <label>Join Type <span class="req">*</span></label>
+          <select id="join-type">
+            <option value="INNER">INNER — only rows matching in both tables</option>
+            <option value="LEFT">LEFT — all left rows + matching right rows</option>
+            <option value="RIGHT">RIGHT — matching left rows + all right rows</option>
+            <option value="OUTER">OUTER — all rows from both tables</option>
+            <option value="LEFT ONLY">LEFT ONLY — left rows with NO match in right</option>
+            <option value="RIGHT ONLY">RIGHT ONLY — right rows with NO match in left</option>
+            <option value="OUTER ONLY">OUTER ONLY — rows that exist in only one table</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">ON Conditions <span class="hint">— how left and right tables relate</span></div>
+        <div class="mapping-list" id="join-on-list"></div>
+        <button class="add-btn" id="join-on-add">+ Add Join Condition</button>
+        <div style="margin-top:8px;font-size:11px;color:var(--muted);">
+          Use tableName.columnName to disambiguate (e.g., Accounts1.account == Accounts2.account)
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Selects <span class="hint">— targetCol = left.col or right.col</span></div>
+        <div class="mapping-list" id="join-select-list"></div>
+        <button class="add-btn" id="join-select-add">+ Add Column Mapping</button>
+      </div>
+    </div><!-- /JOIN -->
+
+    <!-- ── DECORATE ───────────────────────────────────────────── -->
+    <div class="type-section" id="sec-DECORATE">
+      <div class="card">
+        <div class="card-title">Tables</div>
+        <div class="inline-row">
+          <div class="field-row">
+            <label>Source Table <span class="req">*</span> <span class="hint">— listen for updates here</span></label>
+            <select id="dec-source"><option value="">— select —</option></select>
+          </div>
+          <div class="field-row">
+            <label>Target Table <span class="req">*</span> <span class="hint">— decorate rows here</span></label>
+            <select id="dec-target"><option value="">— select —</option></select>
+          </div>
+        </div>
+        <div class="col-hint" id="dec-col-hint">
+          <div class="col-hint-title" id="dec-col-hint-title"></div>
+          <div class="col-chip-list" id="dec-col-chips"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">ON Conditions <span class="hint">— target.col == source.col to match rows</span></div>
+        <div class="mapping-list" id="dec-on-list"></div>
+        <button class="add-btn" id="dec-on-add">+ Add Match Condition</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Selects <span class="hint">— targetCol = sourceExpression (which target columns to update)</span></div>
+        <div class="mapping-list" id="dec-select-list"></div>
+        <button class="add-btn" id="dec-select-add">+ Add Column Mapping</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Options</div>
+        <div class="check-row">
+          <input type="checkbox" id="dec-keysChange">
+          <label for="dec-keysChange">keysChange
+            <span class="hint">— set true if ON clause columns can change value (adds overhead)</span>
+          </label>
+        </div>
+      </div>
+    </div><!-- /DECORATE -->
+
+    <!-- ── RELAY ─────────────────────────────────────────────── -->
+    <div class="type-section" id="sec-RELAY">
+      <div class="card">
+        <div class="card-title">Source Table &amp; Relay Connection</div>
+        <div class="field-row">
+          <label>Source Table <span class="req">*</span></label>
+          <select id="relay-source"><option value="">— select —</option></select>
+        </div>
+        <div class="col-hint" id="relay-col-hint">
+          <div class="col-hint-title" id="relay-col-hint-title"></div>
+          <div class="col-chip-list" id="relay-col-chips"></div>
+        </div>
+        <div class="inline-row-3" style="margin-top:10px;">
+          <div class="field-row">
+            <label>Host <span class="req">*</span></label>
+            <input id="relay-host" type="text" placeholder="localhost">
+          </div>
+          <div class="field-row">
+            <label>Port <span class="req">*</span> <span class="hint">(ami.port)</span></label>
+            <input id="relay-port" type="number" placeholder="3289">
+          </div>
+          <div class="field-row">
+            <label>Login <span class="req">*</span></label>
+            <input id="relay-login" type="text" placeholder="myapp">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Target &amp; Column Routing</div>
+        <div class="field-row">
+          <label>Target Table <span class="hint">— defaults to same name as source if blank</span></label>
+          <input id="relay-target" type="text" placeholder="optional — leave blank for same as source">
+        </div>
+        <div class="field-row" style="margin-top:10px;">
+          <label>derivedValues <span class="hint">— key=expression pairs; omit to map all columns by name</span></label>
+          <div class="mapping-list" id="relay-derived-list"></div>
+          <button class="add-btn" id="relay-derived-add">+ Add Derived Value</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Event Column Lists <span class="hint">— comma-delimited column names; leave blank = send all; set "" = skip event</span></div>
+        <div class="field-row">
+          <label>inserts <span class="hint">— columns sent on onInserted event (include unique constraint cols)</span></label>
+          <input id="relay-inserts" type="text" placeholder="id,name,price">
+        </div>
+        <div class="field-row">
+          <label>updates <span class="hint">— columns sent on onUpdated event (must include unique constraint cols)</span></label>
+          <input id="relay-updates" type="text" placeholder="id,name">
+        </div>
+        <div class="field-row">
+          <label>deletes <span class="hint">— columns sent on onDeleted event</span></label>
+          <input id="relay-deletes" type="text" placeholder="id">
+        </div>
+        <div class="field-row" style="margin-top:10px;">
+          <label>where <span class="hint">— filter: boolean expression on source rows; false = skip message</span></label>
+          <input id="relay-where" type="text" placeholder="price > 100.0">
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">SSL / Keystore (optional)</div>
+        <div class="inline-row">
+          <div class="field-row">
+            <label>keystoreFile</label>
+            <input id="relay-keystoreFile" type="text" placeholder="/path/to/keystore.jks">
+          </div>
+          <div class="field-row">
+            <label>keystorePass</label>
+            <input id="relay-keystorePass" type="text" placeholder="password">
+          </div>
+        </div>
+      </div>
+    </div><!-- /RELAY -->
+
+  </div><!-- /form-col -->
+
+  <!-- ═══ PREVIEW COLUMN ══════════════════════════════════════════ -->
+  <div class="preview-col">
+    <div class="preview-header">
+      <h2>Generated SQL</h2>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="resetBtn">Reset</button>
+        <button class="btn btn-secondary" id="genSqlBtn" title="Regenerate SQL from current form values">⟳ Generate SQL</button>
+        <button class="btn btn-primary" id="execBtn" disabled>Execute</button>
+      </div>
+    </div>
+    <div class="preview-body">
+      <div id="statusMsg" class="status-msg"></div>
+      <textarea id="sqlPreview" readonly placeholder="Fill in the form to generate SQL…"></textarea>
+      <div id="resultWrap" style="display:none;">
+        <div class="result-info" id="resultInfo"></div>
+        <div class="result-wrap" id="resultTable"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<!-- hidden datalists for column autocompletion -->
+<datalist id="dl-ami-src"></datalist>
+<datalist id="dl-agg-src"></datalist>
+<datalist id="dl-agg-tgt"></datalist>
+<datalist id="dl-proj-src"></datalist>
+<datalist id="dl-proj-tgt"></datalist>
+<datalist id="dl-join-both"></datalist>
+<datalist id="dl-join-tgt"></datalist>
+<datalist id="dl-dec-src"></datalist>
+<datalist id="dl-dec-tgt"></datalist>
+<datalist id="dl-relay-src"></datalist>
+
+<script>
+'use strict';
+
+/* ─── Helpers ──────────────────────────────────────────────────── */
+const esc = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const q = (id) => document.getElementById(id);
+const qa = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
+
+const params = new URLSearchParams(location.search);
+const API_BASE = (() => {
+  const p = params.get('api');
+  if (p) return p.replace(/\/$/, '');
+  return `${location.protocol}//${location.hostname}:18092`;
+})();
+
+const INSTANCE_FROM_PARAM = params.get('instance') || '';
+
+// Update back link to return with instance context
+if (INSTANCE_FROM_PARAM) {
+  q('backLink').href = `ami_flow_live.html`;
+}
+
+const TYPE_DESCS = {
+  AMISCRIPT: 'Runs custom AmiScript before or after rows are inserted, updated, or deleted. Supports 5 event hooks. Optionally mutates the row in-flight (canMutateRow).',
+  AGGREGATE: 'Keeps a target table as a real-time aggregation of a source table (groupBys + aggregate selects). Target becomes read-only.',
+  PROJECTION: 'Filters source table(s) into a target table in real-time (wheres + column selects). Multiple sources are UNIONed.',
+  JOIN: 'Real-time join of two tables into a target table. Supports INNER/LEFT/RIGHT/OUTER/LEFT ONLY/RIGHT ONLY/OUTER ONLY join types.',
+  DECORATE: 'Automatically updates (decorates) a target table when a source table row changes, matching on a key expression.',
+  RELAY: 'Relays insert/update/delete events from a source table to a remote AMI Relay instance.',
+};
+
+const AGG_FNS = ['count', 'countUnique', 'sum', 'min', 'max', 'first', 'last', 'stdev', 'stdevs', 'var'];
+
+/* ─── State ────────────────────────────────────────────────────── */
+let currentType = 'AMISCRIPT';
+let instances = [];
+let tableNames = [];
+const tableColumnsCache = {};
+
+/* ─── Column fetching & datalists ──────────────────────────────── */
+async function fetchTableColumns(instance, tableName) {
+  if (!instance || !tableName) return [];
+  const key = `${instance}::${tableName}`;
+  if (tableColumnsCache[key]) return tableColumnsCache[key];
+  try {
+    const r = await fetch(`${API_BASE}/api/instance/${encodeURIComponent(instance)}/table_schema/${encodeURIComponent(tableName)}`);
+    const d = await r.json();
+    const raw = (d.schema?.columns || d.columns || []);
+    const cols = raw.map(c => typeof c === 'object' && c !== null ? String(c.name || c[0] || '') : String(c)).filter(Boolean);
+    tableColumnsCache[key] = cols;
+    return cols;
+  } catch(e) { return []; }
+}
+
+function updateDatalist(dlId, columns) {
+  const dl = document.getElementById(dlId);
+  if (!dl) return;
+  dl.innerHTML = [...new Set(columns)].map(c => `<option value="${esc(c)}">`).join('');
+}
+
+function buildChips(chips, cols, color) {
+  chips.innerHTML = cols.map(c => `<span class="col-chip" style="${color ? `border-color:${color}` : ''}" data-col="${esc(c)}">${esc(c)}</span>`).join('');
+  chips.querySelectorAll('.col-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const col = chip.dataset.col;
+      const active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') && active.closest('.mapping-row, .card')) {
+        const s = active.selectionStart, e2 = active.selectionEnd;
+        active.value = active.value.slice(0, s) + col + active.value.slice(e2);
+        active.setSelectionRange(s + col.length, s + col.length);
+        active.dispatchEvent(new Event('input', { bubbles: true }));
+      } else {
+        try { navigator.clipboard.writeText(col); } catch(_) {}
+        const was = chip.textContent; chip.textContent = 'copied!';
+        setTimeout(() => { chip.textContent = was; }, 700);
+      }
+    });
+  });
+}
+
+async function refreshAmiColumns() {
+  const inst = q('instanceSel').value, tbl = q('ami-table').value;
+  const hint = q('ami-col-hint'), chips = q('ami-col-chips');
+  if (!inst || !tbl) { hint.classList.remove('visible'); updateDatalist('dl-ami-src', []); return; }
+  const cols = await fetchTableColumns(inst, tbl);
+  updateDatalist('dl-ami-src', cols);
+  if (!cols.length) { hint.classList.remove('visible'); return; }
+  hint.classList.add('visible');
+  q('ami-col-hint-title').innerHTML = `Columns of <b>${esc(tbl)}</b> — click chip to insert at cursor`;
+  buildChips(chips, cols, null);
+}
+
+async function refreshAggColumns() {
+  const inst = q('instanceSel').value, src = q('agg-source').value, tgt = q('agg-target').value;
+  const [srcCols, tgtCols] = await Promise.all([fetchTableColumns(inst, src), fetchTableColumns(inst, tgt)]);
+  const srcFull = src ? [...srcCols.map(c => `${src}.${c}`), ...srcCols] : [];
+  updateDatalist('dl-agg-src', [...new Set(srcFull)]);
+  updateDatalist('dl-agg-tgt', tgtCols);
+  const hint = q('agg-col-hint'), chips = q('agg-col-chips');
+  if (!srcCols.length && !tgtCols.length) { hint.classList.remove('visible'); return; }
+  hint.classList.add('visible');
+  q('agg-col-hint-title').innerHTML =
+    (src ? `<span style="color:var(--accent2)">${esc(src)}</span>` : '') +
+    (src && tgt ? ' → ' : '') +
+    (tgt ? `<span style="color:var(--good-text)">${esc(tgt)}</span>` : '');
+  chips.innerHTML = '';
+  const addRow = (label, cols, color) => {
+    if (!cols.length) return;
+    const d = document.createElement('div'); d.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:4px;width:100%;';
+    const l = document.createElement('span'); l.style.cssText = `font-size:10px;color:${color};margin-right:4px;white-space:nowrap;`; l.textContent = label + ':'; d.appendChild(l);
+    const sub = document.createElement('span'); sub.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;';
+    cols.forEach(c => { const ch = document.createElement('span'); ch.className = 'col-chip'; ch.style.borderColor = color; ch.dataset.col = c; ch.textContent = c; sub.appendChild(ch); });
+    d.appendChild(sub); chips.appendChild(d);
+  };
+  addRow(src || 'Source', srcCols, 'var(--accent2)'); addRow(tgt || 'Target', tgtCols, 'var(--good-text)');
+  chips.querySelectorAll('.col-chip').forEach(chip => chip.addEventListener('click', () => {
+    try { navigator.clipboard.writeText(chip.dataset.col); } catch(_) {}
+    const w = chip.textContent; chip.textContent = 'copied!'; setTimeout(() => { chip.textContent = w; }, 700);
+  }));
+}
+
+async function refreshProjColumns() {
+  const inst = q('instanceSel').value;
+  const srcs = qa('option:checked', q('proj-sources')).map(o => o.value).filter(Boolean);
+  const tgt = q('proj-target').value;
+  let srcCols = [];
+  for (const t of srcs) { const c = await fetchTableColumns(inst, t); srcCols.push(...c.map(col => `${t}.${col}`), ...c); }
+  srcCols = [...new Set(srcCols)];
+  updateDatalist('dl-proj-src', srcCols);
+  const tgtCols = tgt ? await fetchTableColumns(inst, tgt) : [];
+  updateDatalist('dl-proj-tgt', tgtCols);
+  const hint = q('proj-col-hint'), chips = q('proj-col-chips');
+  if (!srcCols.length && !tgtCols.length) { hint.classList.remove('visible'); return; }
+  hint.classList.add('visible');
+  q('proj-col-hint-title').innerHTML = srcs.length ? `Sources: ${srcs.map(s => `<span style="color:var(--accent2)">${esc(s)}</span>`).join(', ')}` + (tgt ? ` → <span style="color:var(--good-text)">${esc(tgt)}</span>` : '') : (tgt ? `Target: <span style="color:var(--good-text)">${esc(tgt)}</span>` : '');
+  const plain = [...new Set([...srcCols.filter(c => !c.includes('.')), ...tgtCols])];
+  buildChips(chips, plain, null);
+}
+
+async function refreshJoinColumns() {
+  const inst = q('instanceSel').value, left = q('join-left').value, right = q('join-right').value, tgt = q('join-target').value;
+  const [lCols, rCols, tCols] = await Promise.all([fetchTableColumns(inst, left), fetchTableColumns(inst, right), fetchTableColumns(inst, tgt)]);
+  const both = [...new Set([...(left ? lCols.map(c => `${left}.${c}`) : []), ...lCols, ...(right ? rCols.map(c => `${right}.${c}`) : []), ...rCols])];
+  updateDatalist('dl-join-both', both);
+  updateDatalist('dl-join-tgt', tCols);
+  const hint = q('join-col-hint'), chips = q('join-col-chips');
+  if (!lCols.length && !rCols.length && !tCols.length) { hint.classList.remove('visible'); return; }
+  hint.classList.add('visible');
+  q('join-col-hint-title').innerHTML = (left ? `<span style="color:var(--accent2)">${esc(left)}</span>` : '') + (right ? ` ⋈ <span style="color:var(--warn-text)">${esc(right)}</span>` : '') + (tgt ? ` → <span style="color:var(--good-text)">${esc(tgt)}</span>` : '');
+  chips.innerHTML = '';
+  const addRow2 = (label, cols, color) => {
+    if (!cols.length) return;
+    const d = document.createElement('div'); d.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:4px;width:100%;';
+    const l = document.createElement('span'); l.style.cssText = `font-size:10px;color:${color};margin-right:4px;white-space:nowrap;`; l.textContent = label + ':'; d.appendChild(l);
+    const sub = document.createElement('span'); sub.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;';
+    cols.forEach(c => { const ch = document.createElement('span'); ch.className = 'col-chip'; ch.style.borderColor = color; ch.dataset.col = c; ch.textContent = c; sub.appendChild(ch); });
+    d.appendChild(sub); chips.appendChild(d);
+  };
+  addRow2(left || 'Left', lCols, 'var(--accent2)'); addRow2(right || 'Right', rCols, 'var(--warn-text)'); addRow2(tgt || 'Target', tCols, 'var(--good-text)');
+  chips.querySelectorAll('.col-chip').forEach(chip => chip.addEventListener('click', () => {
+    try { navigator.clipboard.writeText(chip.dataset.col); } catch(_) {}
+    const w = chip.textContent; chip.textContent = 'copied!'; setTimeout(() => { chip.textContent = w; }, 700);
+  }));
+}
+
+async function refreshDecColumns() {
+  const inst = q('instanceSel').value, src = q('dec-source').value, tgt = q('dec-target').value;
+  const [srcCols, tgtCols] = await Promise.all([fetchTableColumns(inst, src), fetchTableColumns(inst, tgt)]);
+  updateDatalist('dl-dec-src', src ? [...new Set([...srcCols.map(c => `${src}.${c}`), ...srcCols])] : []);
+  updateDatalist('dl-dec-tgt', tgt ? [...new Set([...tgtCols.map(c => `${tgt}.${c}`), ...tgtCols])] : []);
+  const hint = q('dec-col-hint'), chips = q('dec-col-chips');
+  if (!srcCols.length && !tgtCols.length) { hint.classList.remove('visible'); return; }
+  hint.classList.add('visible');
+  q('dec-col-hint-title').innerHTML = (src ? `Source <span style="color:var(--accent2)">${esc(src)}</span>` : '') + (tgt ? ` → Target <span style="color:var(--good-text)">${esc(tgt)}</span>` : '');
+  chips.innerHTML = '';
+  const addRow3 = (label, cols, color) => {
+    if (!cols.length) return;
+    const d = document.createElement('div'); d.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:4px;width:100%;';
+    const l = document.createElement('span'); l.style.cssText = `font-size:10px;color:${color};margin-right:4px;white-space:nowrap;`; l.textContent = label + ':'; d.appendChild(l);
+    const sub = document.createElement('span'); sub.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;';
+    cols.forEach(c => { const ch = document.createElement('span'); ch.className = 'col-chip'; ch.style.borderColor = color; ch.dataset.col = c; ch.textContent = c; sub.appendChild(ch); });
+    d.appendChild(sub); chips.appendChild(d);
+  };
+  addRow3(src || 'Source', srcCols, 'var(--accent2)'); addRow3(tgt || 'Target', tgtCols, 'var(--good-text)');
+  chips.querySelectorAll('.col-chip').forEach(chip => chip.addEventListener('click', () => {
+    try { navigator.clipboard.writeText(chip.dataset.col); } catch(_) {}
+    const w = chip.textContent; chip.textContent = 'copied!'; setTimeout(() => { chip.textContent = w; }, 700);
+  }));
+}
+
+async function refreshRelayColumns() {
+  const inst = q('instanceSel').value, src = q('relay-source').value;
+  const hint = q('relay-col-hint'), chips = q('relay-col-chips');
+  if (!inst || !src) { hint.classList.remove('visible'); updateDatalist('dl-relay-src', []); return; }
+  const cols = await fetchTableColumns(inst, src);
+  updateDatalist('dl-relay-src', cols);
+  if (!cols.length) { hint.classList.remove('visible'); return; }
+  hint.classList.add('visible');
+  q('relay-col-hint-title').innerHTML = `Columns of <b>${esc(src)}</b> — click chip to insert at cursor`;
+  buildChips(chips, cols, null);
+}
+
+/* ─── Instance & table loading ─────────────────────────────────── */
+async function loadInstances() {
+  try {
+    const r = await fetch(`${API_BASE}/api/instances`);
+    const d = await r.json();
+    instances = (d.instances || []);
+    const sel = q('instanceSel');
+    sel.innerHTML = '<option value="">— select instance —</option>' +
+      instances.map(i => `<option value="${esc(i.name)}"${i.name === INSTANCE_FROM_PARAM ? ' selected' : ''}>${esc(i.name)}</option>`).join('');
+    if (INSTANCE_FROM_PARAM) await loadTables(INSTANCE_FROM_PARAM);
+  } catch(e) {
+    showStatus('Could not load instances: ' + e.message, 'bad');
+  }
+}
+
+async function loadTables(instanceName) {
+  tableNames = [];
+  const allSelects = qa('select[id$="-source"], select[id$="-target"], select[id="ami-table"], select[id="proj-sources"], select[id="proj-target"], select[id="join-left"], select[id="join-right"], select[id="join-target"], select[id="relay-source"]');
+  allSelects.forEach(s => { s.innerHTML = '<option value="">Loading…</option>'; });
+  try {
+    const r = await fetch(`${API_BASE}/api/instance/${encodeURIComponent(instanceName)}/tables`);
+    const d = await r.json();
+    const rows = (d.payload?.rows || []);
+    tableNames = rows.map(r => typeof r === 'object' && r !== null ? (r.name || r[0] || '') : String(r)).filter(Boolean);
+    const opts = '<option value="">— select table —</option>' + tableNames.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+    allSelects.forEach(s => {
+      if (s.id === 'proj-sources') {
+        s.innerHTML = tableNames.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+      } else {
+        s.innerHTML = opts;
+      }
+    });
+  } catch(e) {
+    allSelects.forEach(s => { s.innerHTML = '<option value="">Error loading tables</option>'; });
+  }
+  rebuildSql();
+}
+
+q('instanceSel').addEventListener('change', function() {
+  if (this.value) loadTables(this.value);
+});
+
+// Wire table-select changes to column refresh functions
+q('ami-table').addEventListener('change',  () => { refreshAmiColumns();  rebuildSql(); });
+q('agg-source').addEventListener('change', () => { refreshAggColumns();  rebuildSql(); });
+q('agg-target').addEventListener('change', () => { refreshAggColumns();  rebuildSql(); });
+q('proj-sources').addEventListener('change', () => { refreshProjColumns(); rebuildSql(); });
+q('proj-target').addEventListener('change', () => { refreshProjColumns(); rebuildSql(); });
+q('join-left').addEventListener('change',  () => { refreshJoinColumns(); rebuildSql(); });
+q('join-right').addEventListener('change', () => { refreshJoinColumns(); rebuildSql(); });
+q('join-target').addEventListener('change',() => { refreshJoinColumns(); rebuildSql(); });
+q('dec-source').addEventListener('change', () => { refreshDecColumns();  rebuildSql(); });
+q('dec-target').addEventListener('change', () => { refreshDecColumns();  rebuildSql(); });
+q('relay-source').addEventListener('change',()=> { refreshRelayColumns(); rebuildSql(); });
+
+/* ─── Type switching ────────────────────────────────────────────── */
+qa('.type-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentType = btn.dataset.type;
+    qa('.type-tab').forEach(b => b.classList.toggle('active', b === btn));
+    qa('.type-section').forEach(s => s.classList.toggle('active', s.id === `sec-${currentType}`));
+    q('typeDesc').textContent = TYPE_DESCS[currentType];
+    rebuildSql();
+  });
+});
+q('typeDesc').textContent = TYPE_DESCS['AMISCRIPT'];
+
+/* ─── Dynamic mapping row helpers ───────────────────────────────── */
+const LIST_CONFIGS = {
+  'agg-groupby-list':   { type: 'tgt-eq-src', tgtDl: 'dl-agg-tgt',   srcDl: 'dl-agg-src',   tgtPh: 'targetColumn',          srcPh: 'sourceColumn or expression' },
+  'agg-select-list':    { type: 'agg',         tgtDl: 'dl-agg-tgt',   srcDl: 'dl-agg-src' },
+  'proj-where-list':    { type: 'free',         exprDl: 'dl-proj-src', exprPh: 'expression e.g. region==null' },
+  'proj-select-list':   { type: 'tgt-eq-src',  tgtDl: 'dl-proj-tgt', srcDl: 'dl-proj-src',   tgtPh: 'targetColumn',          srcPh: 'sourceColumn or expression' },
+  'join-on-list':       { type: 'cond',         leftDl: 'dl-join-both', rightDl: 'dl-join-both', leftPh: 'LeftTable.column',   rightPh: 'RightTable.column' },
+  'join-select-list':   { type: 'tgt-eq-src',  tgtDl: 'dl-join-tgt', srcDl: 'dl-join-both',  tgtPh: 'targetColumn',          srcPh: 'Table.column or expression' },
+  'dec-on-list':        { type: 'cond',         leftDl: 'dl-dec-tgt', rightDl: 'dl-dec-src',  leftPh: 'Target.column',        rightPh: 'Source.column' },
+  'dec-select-list':    { type: 'tgt-eq-src',  tgtDl: 'dl-dec-tgt',  srcDl: 'dl-dec-src',    tgtPh: 'targetColumn',          srcPh: 'sourceColumn or expression' },
+  'relay-derived-list': { type: 'kv',           valDl: 'dl-relay-src', keyPh: 'targetKey',    valPh: 'sourceColumn or expression' },
+};
+
+function addMappingRow(listId) {
+  const cfg  = LIST_CONFIGS[listId] || { type: 'tgt-eq-src' };
+  const type = cfg.type;
+  const list = q(listId);
+  const row  = document.createElement('div');
+  row.className = 'mapping-row';
+  const la = (dl) => dl ? ` list="${dl}"` : '';
+
+  if (type === 'tgt-eq-src') {
+    row.classList.add('map-tgt-eq-src');
+    row.innerHTML = `
+      <input type="text" placeholder="${cfg.tgtPh || 'targetColumn'}" class="col-target"${la(cfg.tgtDl)}>
+      <span class="eq-label">=</span>
+      <input type="text" placeholder="${cfg.srcPh || 'sourceExpression'}" class="col-source"${la(cfg.srcDl)}>
+      <button class="rm-btn" type="button">✕</button>`;
+  } else if (type === 'agg') {
+    row.classList.add('map-agg');
+    row.innerHTML = `
+      <input type="text" placeholder="targetColumn" class="col-target"${la(cfg.tgtDl)}>
+      <span class="eq-label">=</span>
+      <select class="col-aggfn">${AGG_FNS.map(f => `<option value="${f}">${f}</option>`).join('')}</select>
+      <input type="text" placeholder="column or expression" class="col-source"${la(cfg.srcDl)}>
+      <button class="rm-btn" type="button">✕</button>`;
+  } else if (type === 'cond') {
+    row.classList.add('map-cond');
+    row.innerHTML = `
+      <input type="text" placeholder="${cfg.leftPh || 'left.column'}" class="col-left"${la(cfg.leftDl)}>
+      <span class="eq-label">==</span>
+      <input type="text" placeholder="${cfg.rightPh || 'right.column'}" class="col-right"${la(cfg.rightDl)}>
+      <button class="rm-btn" type="button">✕</button>`;
+  } else if (type === 'free') {
+    row.classList.add('map-free');
+    row.innerHTML = `
+      <input type="text" placeholder="${cfg.exprPh || 'boolean expression'}" class="col-expr"${la(cfg.exprDl)}>
+      <button class="rm-btn" type="button">✕</button>`;
+  } else if (type === 'kv') {
+    row.classList.add('map-tgt-eq-src');
+    row.innerHTML = `
+      <input type="text" placeholder="${cfg.keyPh || 'targetKey'}" class="col-key">
+      <span class="eq-label">=</span>
+      <input type="text" placeholder="${cfg.valPh || 'sourceExpression'}" class="col-val"${la(cfg.valDl)}>
+      <button class="rm-btn" type="button">✕</button>`;
+  }
+
+  row.querySelectorAll('input, select').forEach(el => el.addEventListener('input', rebuildSql));
+  row.querySelector('.rm-btn')?.addEventListener('click', () => { row.remove(); rebuildSql(); });
+  list.appendChild(row);
+  rebuildSql();
+  return row;
+}
+
+function readMappingList(listId, type) {
+  return qa('.mapping-row', q(listId)).map(row => {
+    if (type === 'tgt-eq-src') {
+      const t = row.querySelector('.col-target')?.value.trim();
+      const s = row.querySelector('.col-source')?.value.trim();
+      return (t && s) ? `${t}=${s}` : null;
+    } else if (type === 'agg') {
+      const t = row.querySelector('.col-target')?.value.trim();
+      const fn = row.querySelector('.col-aggfn')?.value;
+      const s = row.querySelector('.col-source')?.value.trim();
+      return (t && fn && s) ? `${t}=${fn}(${s})` : null;
+    } else if (type === 'cond') {
+      const l = row.querySelector('.col-left')?.value.trim();
+      const r = row.querySelector('.col-right')?.value.trim();
+      return (l && r) ? `${l}==${r}` : null;
+    } else if (type === 'free') {
+      const e = row.querySelector('.col-expr')?.value.trim();
+      return e || null;
+    } else if (type === 'kv') {
+      const k = row.querySelector('.col-key')?.value.trim();
+      const v = row.querySelector('.col-val')?.value.trim();
+      return (k && v) ? `${k}=${v}` : null;
+    }
+    return null;
+  }).filter(Boolean);
+}
+
+// Wire add buttons using LIST_CONFIGS
+Object.keys(LIST_CONFIGS).forEach(listId => {
+  const btnId = listId.replace('-list', '-add');
+  const btn = q(btnId);
+  if (btn) btn.addEventListener('click', () => addMappingRow(listId));
+});
+
+// Seed one starter row per list
+['agg-groupby-list','agg-select-list','proj-where-list','proj-select-list','join-on-list','join-select-list','dec-on-list','dec-select-list','relay-derived-list'].forEach(id => addMappingRow(id));
+
+/* ─── SQL builder ───────────────────────────────────────────────── */
+function escSqlStr(s) {
+  // escape embedded quotes with backslash inside a double-quoted SQL string
+  return String(s).replace(/\\/g,'\\\\').replace(/"/g,'\\"');
+}
+
+function priorityClause() {
+  const p = String(q('triggerPriority').value || '').trim();
+  return (p !== '' && !isNaN(Number(p))) ? ` PRIORITY ${p}` : '';
+}
+
+function buildSql() {
+  const name = q('triggerName').value.trim() || 'new_trigger';
+  const pri = priorityClause();
+  const type = currentType;
+
+  if (type === 'AMISCRIPT') {
+    const table = q('ami-table').value;
+    const scripts = [
+      ['vars',              q('ami-vars').value.trim()],
+      ['onStartupScript',   q('ami-onStartupScript').value.trim()],
+      ['onInsertingScript', q('ami-onInsertingScript').value.trim()],
+      ['onInsertedScript',  q('ami-onInsertedScript').value.trim()],
+      ['onUpdatingScript',  q('ami-onUpdatingScript').value.trim()],
+      ['onUpdatedScript',   q('ami-onUpdatedScript').value.trim()],
+      ['onDeletingScript',  q('ami-onDeletingScript').value.trim()],
+    ].filter(([,v]) => v);
+    const canMutate = q('ami-canMutateRow').checked;
+    const rowVar = q('ami-rowVar').value.trim();
+    const useLines = [];
+    scripts.forEach(([k, v]) => useLines.push(`${k}="${escSqlStr(v)}"`));
+    if (canMutate) useLines.push('canMutateRow="true"');
+    if (rowVar) useLines.push(`rowVar="${escSqlStr(rowVar)}"`);
+
+    if (!table) return `-- ⚠ Select a source table\nCREATE TRIGGER ${name} OFTYPE AMISCRIPT ON <table>${pri} USE\n${useLines.join('\n') || '-- add at least one event script'}`;
+    return `CREATE TRIGGER ${name} OFTYPE AMISCRIPT ON ${table}${pri} USE\n${useLines.join('\n') || '-- add at least one event script'};`;
+  }
+
+  if (type === 'AGGREGATE') {
+    const src = q('agg-source').value;
+    const tgt = q('agg-target').value;
+    const gbs = readMappingList('agg-groupby-list', 'tgt-eq-src').join(',');
+    const sels = readMappingList('agg-select-list', 'agg').join(',');
+    const extUpd = q('agg-allowExternalUpdates').checked;
+    const parts = [];
+    if (gbs)    parts.push(`groupBys="${escSqlStr(gbs)}"`);
+    if (sels)   parts.push(`selects="${escSqlStr(sels)}"`);
+    if (extUpd) parts.push('allowExternalUpdates="true"');
+    if (!src || !tgt) return `-- ⚠ Select source and target tables\nCREATE TRIGGER ${name} OFTYPE AGGREGATE ON <source>,<target>${pri} USE\n  groupBys="..." selects="...";`;
+    return `CREATE TRIGGER ${name} OFTYPE AGGREGATE\nON ${src},${tgt}${pri} USE\n${parts.join('\n') || '-- add groupBys and selects'};`;
+  }
+
+  if (type === 'PROJECTION') {
+    const srcs = qa('option:checked', q('proj-sources')).map(o => o.value).filter(Boolean);
+    const tgt = q('proj-target').value;
+    const wheres = readMappingList('proj-where-list', 'free').join(',');
+    const sels = readMappingList('proj-select-list', 'tgt-eq-src').join(',');
+    const extUpd = q('proj-allowExternalUpdates').checked;
+    const parts = [];
+    if (wheres) parts.push(`wheres="${escSqlStr(wheres)}"`);
+    if (sels)   parts.push(`selects="${escSqlStr(sels)}"`);
+    if (extUpd) parts.push('allowExternalUpdates="true"');
+    const tables = [...srcs, tgt].filter(Boolean).join(',');
+    if (!srcs.length || !tgt) return `-- ⚠ Select source table(s) and target table\nCREATE TRIGGER ${name} OFTYPE PROJECTION ON <sources>,<target>${pri} USE\n  wheres="..." selects="...";`;
+    return `CREATE TRIGGER ${name} OFTYPE PROJECTION\nON ${tables}${pri} USE\n${parts.join('\n') || '-- add selects'};`;
+  }
+
+  if (type === 'JOIN') {
+    const left  = q('join-left').value;
+    const right = q('join-right').value;
+    const tgt   = q('join-target').value;
+    const jtype = q('join-type').value;
+    const ons  = readMappingList('join-on-list', 'cond').join(' && ');
+    const sels = readMappingList('join-select-list', 'tgt-eq-src').join(',');
+    const parts = [];
+    parts.push(`type="${jtype}"`);
+    if (ons)  parts.push(`on="${escSqlStr(ons)}"`);
+    if (sels) parts.push(`selects="${escSqlStr(sels)}"`);
+    if (!left || !right || !tgt) return `-- ⚠ Select left, right, and target tables\nCREATE TRIGGER ${name} OFTYPE JOIN ON <left>,<right>,<target>${pri} USE\n  type="INNER" on="..." selects="...";`;
+    return `CREATE TRIGGER ${name} OFTYPE JOIN\nON ${left},${right},${tgt}${pri} USE\n${parts.join('\n')};`;
+  }
+
+  if (type === 'DECORATE') {
+    const src = q('dec-source').value;
+    const tgt = q('dec-target').value;
+    const ons  = readMappingList('dec-on-list', 'cond').join(' && ');
+    const sels = readMappingList('dec-select-list', 'tgt-eq-src').join(',');
+    const keysChg = q('dec-keysChange').checked;
+    const parts = [];
+    if (ons)     parts.push(`on="${escSqlStr(ons)}"`);
+    if (sels)    parts.push(`selects="${escSqlStr(sels)}"`);
+    if (keysChg) parts.push('keysChange="true"');
+    if (!src || !tgt) return `-- ⚠ Select source and target tables\nCREATE TRIGGER ${name} OFTYPE DECORATE ON <source>,<target>${pri} USE\n  on="..." selects="...";`;
+    return `CREATE TRIGGER ${name} OFTYPE DECORATE\nON ${src},${tgt}${pri} USE\n${parts.join('\n') || '-- add on and selects'};`;
+  }
+
+  if (type === 'RELAY') {
+    const src    = q('relay-source').value;
+    const host   = q('relay-host').value.trim();
+    const port   = q('relay-port').value.trim();
+    const login  = q('relay-login').value.trim();
+    const target = q('relay-target').value.trim();
+    const derived = readMappingList('relay-derived-list', 'kv').join(',');
+    const inserts = q('relay-inserts').value.trim();
+    const updates = q('relay-updates').value.trim();
+    const deletes = q('relay-deletes').value.trim();
+    const where   = q('relay-where').value.trim();
+    const ksFile  = q('relay-keystoreFile').value.trim();
+    const ksPass  = q('relay-keystorePass').value.trim();
+    const parts = [];
+    if (host)    parts.push(`host="${escSqlStr(host)}"`);
+    if (port)    parts.push(`port="${port}"`);
+    if (login)   parts.push(`login="${escSqlStr(login)}"`);
+    if (target)  parts.push(`target="${escSqlStr(target)}"`);
+    if (derived) parts.push(`derivedValues="${escSqlStr(derived)}"`);
+    if (inserts) parts.push(`inserts="${escSqlStr(inserts)}"`);
+    if (updates) parts.push(`updates="${escSqlStr(updates)}"`);
+    if (deletes) parts.push(`deletes="${escSqlStr(deletes)}"`);
+    if (where)   parts.push(`where="${escSqlStr(where)}"`);
+    if (ksFile)  parts.push(`keystoreFile="${escSqlStr(ksFile)}"`);
+    if (ksPass)  parts.push(`keystorePass="${escSqlStr(ksPass)}"`);
+    if (!src) return `-- ⚠ Select source table\nCREATE TRIGGER ${name} OFTYPE RELAY ON <source>${pri} USE\n  host="..." port="..." login="...";`;
+    return `CREATE TRIGGER ${name} OFTYPE RELAY\nON ${src}${pri} USE\n${parts.join('\n') || '-- add relay connection options'};`;
+  }
+
+  return '-- Unknown trigger type';
+}
+
+function rebuildSql() {
+  const sql = buildSql();
+  q('sqlPreview').value = sql;
+  const hasInstance = q('instanceSel').value;
+  const hasName = q('triggerName').value.trim();
+  q('execBtn').disabled = !hasInstance || !hasName;
+}
+
+// Wire all form inputs to rebuildSql
+document.querySelectorAll('input, select, textarea').forEach(el => {
+  el.addEventListener('input', rebuildSql);
+  el.addEventListener('change', rebuildSql);
+});
+
+/* ─── Status helper ─────────────────────────────────────────────── */
+function showStatus(msg, cls = 'info') {
+  const el = q('statusMsg');
+  el.textContent = msg;
+  el.className = `status-msg ${cls}`;
+}
+
+function hideStatus() {
+  q('statusMsg').className = 'status-msg';
+}
+
+/* ─── Execute ───────────────────────────────────────────────────── */
+q('execBtn').addEventListener('click', async () => {
+  const instance = q('instanceSel').value;
+  if (!instance) { showStatus('Select an instance first.', 'bad'); return; }
+  const sql = q('sqlPreview').value.trim();
+  if (!sql || sql.startsWith('--')) { showStatus('Generate valid SQL first.', 'bad'); return; }
+
+  q('execBtn').disabled = true;
+  showStatus('Executing…', 'info');
+  q('resultWrap').style.display = 'none';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/instance/${encodeURIComponent(instance)}/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    const cols = data.columns || [];
+    const rows = data.rows || [];
+    if (cols.length > 0) {
+      const th = cols.map(c => `<th>${esc(c)}</th>`).join('');
+      const tb = rows.map(r => `<tr>${(Array.isArray(r) ? r : cols.map(c => r[c])).map(c => `<td>${esc(String(c ?? ''))}</td>`).join('')}</tr>`).join('');
+      q('resultTable').innerHTML = `<table><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table>`;
+      q('resultInfo').textContent = `${rows.length} row(s) — ${data.elapsed_ms ?? '?'} ms`;
+      q('resultWrap').style.display = '';
+    }
+    showStatus(`✓ Trigger created successfully in ${data.elapsed_ms ?? '?'} ms`, 'good');
+  } catch(e) {
+    showStatus('✗ ' + (e.message || String(e)), 'bad');
+  } finally {
+    q('execBtn').disabled = false;
+  }
+});
+
+/* ─── Generate SQL button ────────────────────────────────────────── */
+q('genSqlBtn').addEventListener('click', () => {
+  rebuildSql();
+  q('sqlPreview').scrollIntoView({ behavior: 'smooth' });
+  setTimeout(() => q('sqlPreview').select(), 100);
+});
+
+/* ─── Reset ─────────────────────────────────────────────────────── */
+q('resetBtn').addEventListener('click', () => {
+  if (!confirm('Reset all fields?')) return;
+  q('triggerName').value = '';
+  q('triggerPriority').value = '';
+  // AMISCRIPT
+  ['ami-vars','ami-onStartupScript','ami-onInsertingScript','ami-onInsertedScript',
+   'ami-onUpdatingScript','ami-onUpdatedScript','ami-onDeletingScript','ami-rowVar'].forEach(id => { const el = q(id); if (el) el.value = ''; });
+  q('ami-canMutateRow').checked = false;
+  // AGGREGATE
+  q('agg-allowExternalUpdates').checked = false;
+  // PROJECTION
+  q('proj-allowExternalUpdates').checked = false;
+  // DECORATE
+  q('dec-keysChange').checked = false;
+  // RELAY
+  ['relay-host','relay-port','relay-login','relay-target','relay-inserts','relay-updates','relay-deletes','relay-where','relay-keystoreFile','relay-keystorePass'].forEach(id => { const el = q(id); if (el) el.value = ''; });
+  hideStatus();
+  q('resultWrap').style.display = 'none';
+  rebuildSql();
+});
+
+/* ─── Init ──────────────────────────────────────────────────────── */
+loadInstances();
+rebuildSql();
+</script>
+</body>
+</html>

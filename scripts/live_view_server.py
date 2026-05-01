@@ -49,6 +49,7 @@ ALLOWED_VIEWS = {
     "tables",
     "trigger_flows",
     "procedure_details",
+    "method_details",
     "timer_details",
     "relationships",
     "data_flow",
@@ -215,6 +216,105 @@ def section_procedures(cursor: Any) -> dict[str, Any]:
     return {"rows": procedure_details}
 
 
+def section_methods(cursor: Any) -> dict[str, Any]:
+    method_rows: list[tuple[Any, ...]] = []
+    method_columns: list[str] = []
+    try:
+        cursor.execute("show methods")
+        method_columns = [str(d[0]) for d in (cursor.description or [])]
+        method_rows = [
+            r
+            for r in cursor.fetchall()
+            if r and len(r) > 0 and not str(r[0]).startswith("__")
+        ]
+    except Exception:
+        method_rows = []
+
+    if method_rows:
+        details: list[dict[str, Any]] = []
+        raw_rows: list[dict[str, Any]] = []
+        for row in method_rows:
+            row_dict: dict[str, Any] = {}
+            for idx, value in enumerate(row):
+                key = method_columns[idx] if idx < len(method_columns) and method_columns[idx] else f"col_{idx + 1}"
+                row_dict[key] = normalize_scalar(value)
+            raw_rows.append(row_dict)
+
+            method_name = str(row_dict.get("MethodName") or row_dict.get("methodname") or row_dict.get("name") or "")
+            definition = str(row_dict.get("Definition") or row_dict.get("definition") or "")
+            method_type = str(row_dict.get("TargetType") or row_dict.get("targettype") or "METHOD")
+            return_type = (
+                str(row_dict.get("ReturnType") or row_dict.get("returntype"))
+                if row_dict.get("ReturnType") is not None or row_dict.get("returntype") is not None
+                else None
+            )
+            owner = (
+                str(row_dict.get("DefinedBy") or row_dict.get("definedby"))
+                if row_dict.get("DefinedBy") is not None or row_dict.get("definedby") is not None
+                else None
+            )
+            options_preview = definition or None
+
+            arguments = None
+            if definition and "(" in definition and ")" in definition:
+                left = definition.find("(")
+                right = definition.rfind(")")
+                if right > left:
+                    arguments = definition[left + 1 : right].strip()
+
+            name = method_name or (str(row[0]) if row and len(row) > 0 else "")
+            describe_target = definition or name
+
+            ddl = None
+            ddl_error = None
+            try:
+                cursor.execute(f"describe method {describe_target}")
+                ddl_rows = cursor.fetchall()
+                if ddl_rows:
+                    ddl = str(ddl_rows[0][0])
+            except Exception as exc:  # noqa: BLE001
+                ddl_error = str(exc)
+
+            details.append(
+                {
+                    "name": name,
+                    "procedure_type": method_type,
+                    "return_type": return_type,
+                    "arguments": arguments,
+                    "options_preview": options_preview,
+                    "owner": owner,
+                    "ddl": ddl,
+                    "ddl_error": ddl_error,
+                }
+            )
+
+        details.sort(key=lambda x: str(x.get("name") or "").lower())
+        return {
+            "rows": details,
+            "columns": method_columns,
+            "raw_rows": raw_rows,
+        }
+
+    procedure_rows = fetch_show_procedures(cursor)
+    procedure_details = fetch_procedure_details(cursor, procedure_rows)
+
+    def _is_method(row: Any) -> bool:
+        if isinstance(row, dict):
+            kind = (
+                row.get("procedure_type")
+                or row.get("type")
+                or row.get("routine_type")
+                or ""
+            )
+            return "METHOD" in str(kind).upper()
+        if isinstance(row, (list, tuple)):
+            return any("METHOD" in str(v).upper() for v in row)
+        return "METHOD" in str(row).upper()
+
+    methods = [row for row in procedure_details if _is_method(row)]
+    return {"rows": methods}
+
+
 def section_timers(cursor: Any) -> dict[str, Any]:
     timer_rows = fetch_show_timers(cursor)
     timer_details = fetch_timer_details(cursor, timer_rows)
@@ -289,6 +389,8 @@ def query_section(instance_cfg: dict[str, Any], args: argparse.Namespace, sectio
             payload = section_trigger_flows(cursor)
         elif section == "procedure_details":
             payload = section_procedures(cursor)
+        elif section == "method_details":
+            payload = section_methods(cursor)
         elif section == "timer_details":
             payload = section_timers(cursor)
         elif section == "relationships":
@@ -409,12 +511,86 @@ def query_execute(
     args: argparse.Namespace,
     sql: str,
 ) -> dict[str, Any]:
+    def _has_multiple_top_level_statements(text: str) -> bool:
+        in_single = False
+        in_double = False
+        in_line_comment = False
+        in_block_comment = False
+        brace_depth = 0
+        top_level_semis: list[int] = []
+
+        i = 0
+        n = len(text)
+        while i < n:
+            ch = text[i]
+            nxt = text[i + 1] if i + 1 < n else ""
+
+            if in_line_comment:
+                if ch == "\n":
+                    in_line_comment = False
+                i += 1
+                continue
+
+            if in_block_comment:
+                if ch == "*" and nxt == "/":
+                    in_block_comment = False
+                    i += 2
+                    continue
+                i += 1
+                continue
+
+            if not in_single and not in_double:
+                if ch == "-" and nxt == "-":
+                    in_line_comment = True
+                    i += 2
+                    continue
+                if ch == "/" and nxt == "*":
+                    in_block_comment = True
+                    i += 2
+                    continue
+
+            if ch == "'" and not in_double:
+                if in_single and nxt == "'":
+                    i += 2
+                    continue
+                in_single = not in_single
+                i += 1
+                continue
+
+            if ch == '"' and not in_single:
+                if in_double and nxt == '"':
+                    i += 2
+                    continue
+                in_double = not in_double
+                i += 1
+                continue
+
+            if not in_single and not in_double:
+                if ch == "{":
+                    brace_depth += 1
+                elif ch == "}" and brace_depth > 0:
+                    brace_depth -= 1
+                elif ch == ";" and brace_depth == 0:
+                    top_level_semis.append(i)
+
+            i += 1
+
+        if not top_level_semis:
+            return False
+
+        if len(top_level_semis) > 1:
+            return True
+
+        semi_idx = top_level_semis[0]
+        trailing = text[semi_idx + 1 :].strip()
+        return trailing != ""
+
     query = (sql or "").strip()
     if not query:
         raise ValueError("Query is empty")
 
     # Keep this to one statement per request.
-    if ";" in query[:-1]:
+    if _has_multiple_top_level_statements(query):
         raise ValueError("Only a single SQL statement is allowed per execution")
     if query.endswith(";"):
         query = query[:-1].strip()

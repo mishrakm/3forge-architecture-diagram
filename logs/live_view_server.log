@@ -1862,3 +1862,116 @@ INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:6280
 Apr 28, 2026 1:22:23 PM com.f1.utils.LH rawlogArray
 INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:6280
 192.192.100.101 - - [28/Apr/2026 13:22:23] "GET /api/instance/OPS/describe/table/OPS HTTP/1.1" 200 -
+Apr 28, 2026 1:30:39 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:6280
+192.192.100.101 - - [28/Apr/2026 13:30:39] "GET /api/instance/OPS/relationships HTTP/1.1" 200 -
+Apr 28, 2026 1:30:45 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 13:30:47] "GET /api/instance/Main%20app/data_flow HTTP/1.1" 200 -
+127.0.0.1 - - [28/Apr/2026 13:31:44] "GET /ami_flow_live.html HTTP/1.1" 200 -
+Apr 28, 2026 1:32:00 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 13:32:00] "GET /api/instance/Main%20app/procedure_details HTTP/1.1" 200 -
+Apr 28, 2026 1:32:06 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 13:32:06] "GET /api/instance/Main%20app/describe/procedure/a1 HTTP/1.1" 200 -
+Apr 28, 2026 1:32:09 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 13:32:09] "GET /api/instance/Main%20app/describe/procedure/join_mktData_proc HTTP/1.1" 200 -
+Apr 28, 2026 1:32:16 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 13:32:16] "GET /api/instance/Main%20app/procedure_details HTTP/1.1" 200 -
+Apr 28, 2026 1:32:25 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:3280
+192.192.100.101 - - [28/Apr/2026 13:32:25] "GET /api/instance/TradeBook/procedure_details HTTP/1.1" 200 -
+Apr 28, 2026 1:32:28 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:3280
+192.192.100.101 - - [28/Apr/2026 13:32:28] "GET /api/instance/TradeBook/describe/procedure/netBookSnap HTTP/1.1" 200 -
+Apr 28, 2026 1:32:31 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:3280
+192.192.100.101 - - [28/Apr/2026 13:32:31] "GET /api/instance/TradeBook/describe/procedure/NetBookMergeConrev HTTP/1.1" 200 -
+Apr 28, 2026 1:32:38 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:3280
+192.192.100.101 - - [28/Apr/2026 13:32:38] "GET /api/instance/TradeBook/describe/procedure/NetBookConrevPositions HTTP/1.1" 200 -
+Apr 28, 2026 1:32:48 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:3280
+192.192.100.101 - - [28/Apr/2026 13:32:48] "GET /api/instance/TradeBook/describe/procedure/netBook2 HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 13:32:55] "GET /ami_flow_live.html?instance=TradeBook&view=procedure_details&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 13:32:55] "GET /ami_flow_live.css HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 13:32:55] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 13:32:55] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 13:32:55] code 404, message File not found
+192.192.100.101 - - [28/Apr/2026 13:32:55] "GET /favicon.ico HTTP/1.1" 404 -
+Apr 28, 2026 1:32:55 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:3280
+192.192.100.101 - - [28/Apr/2026 13:32:56] "GET /api/instance/TradeBook/procedure_details HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 13:33:02] "GET /api/instance/TradeBook/method_details HTTP/1.1" 500 -
+Apr 28, 2026 1:33:07 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [28/Apr/2026 13:33:07] "GET /api/instance/Main%20app/tables HTTP/1.1" 200 -
+192.192.100.101 - - [28/Apr/2026 13:33:09] "GET /api/instance/Main%20app/method_details HTTP/1.1" 500 -
+127.0.0.1 - - [28/Apr/2026 13:35:24] "GET /api/instances HTTP/1.1" 200 -
+127.0.0.1 - - [28/Apr/2026 13:36:04] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 1:36:04 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+127.0.0.1 - - [28/Apr/2026 13:36:05] "GET /api/instance/Main%20app/procedure_details HTTP/1.1" 200 -
+127.0.0.1 - - [28/Apr/2026 13:36:05] "GET /api/instance/Main%20app/method_details HTTP/1.1" 500 -
+127.0.0.1 - - [28/Apr/2026 13:36:36] "GET /api/instances HTTP/1.1" 200 -
+Apr 28, 2026 1:36:36 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+127.0.0.1 - - [28/Apr/2026 13:36:36] "GET /api/instance/Main%20app/procedure_details HTTP/1.1" 200 -
+127.0.0.1 - - [28/Apr/2026 13:36:36] "GET /api/instance/Main%20app/method_details HTTP/1.1" 500 -
+192.192.100.101 - - [29/Apr/2026 08:18:27] "GET /ami_flow_live.html?instance=Main+app&view=trigger_flows&liveBase=http%3A%2F%2F192.192.100.130%3A18092 HTTP/1.1" 200 -
+192.192.100.101 - - [29/Apr/2026 08:18:27] "GET /ami_flow_live.css HTTP/1.1" 304 -
+192.192.100.101 - - [29/Apr/2026 08:18:27] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.101 - - [29/Apr/2026 08:18:27] "GET /api/instances HTTP/1.1" 200 -
+Apr 29, 2026 8:18:27 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:2280
+192.192.100.101 - - [29/Apr/2026 08:18:27] "GET /api/instance/Main%20app/trigger_flows HTTP/1.1" 200 -
+Apr 29, 2026 8:18:31 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:6280
+192.192.100.101 - - [29/Apr/2026 08:18:31] "GET /api/instance/OPS/tables HTTP/1.1" 500 -
+Apr 29, 2026 8:18:39 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:6280
+192.192.100.101 - - [29/Apr/2026 08:18:39] "GET /api/instance/OPS/trigger_flows HTTP/1.1" 500 -
+Apr 29, 2026 8:18:40 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:6280
+192.192.100.101 - - [29/Apr/2026 08:18:40] "GET /api/instance/OPS/procedure_details HTTP/1.1" 500 -
+Apr 29, 2026 8:18:41 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:6280
+192.192.100.101 - - [29/Apr/2026 08:18:41] "GET /api/instance/OPS/overview HTTP/1.1" 500 -
+Apr 29, 2026 8:54:49 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:6280
+192.192.100.101 - - [29/Apr/2026 08:54:49] "GET /api/instance/OPS/tables HTTP/1.1" 200 -
+Apr 29, 2026 8:54:51 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:6280
+192.192.100.101 - - [29/Apr/2026 08:54:51] "GET /api/instance/OPS/overview HTTP/1.1" 200 -
+Apr 29, 2026 3:36:56 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:10280
+192.192.100.101 - - [29/Apr/2026 15:36:56] "GET /api/instance/Ord%20Kafka%201/tables HTTP/1.1" 200 -
+Apr 29, 2026 3:36:59 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:10280
+192.192.100.101 - - [29/Apr/2026 15:36:59] "GET /api/instance/Ord%20Kafka%201/describe/table/order_msgs_noxml HTTP/1.1" 200 -
+Apr 29, 2026 3:37:01 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:10280
+192.192.100.101 - - [29/Apr/2026 15:37:02] "GET /api/instance/Ord%20Kafka%201/table_data/order_msgs_noxml HTTP/1.1" 200 -
+Apr 29, 2026 3:49:22 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:10280
+192.192.100.101 - - [29/Apr/2026 15:49:22] "GET /api/instance/Ord%20Kafka%201/tables HTTP/1.1" 200 -
+Apr 29, 2026 3:49:23 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:10280
+192.192.100.101 - - [29/Apr/2026 15:49:23] "GET /api/instance/Ord%20Kafka%201/describe/table/order_msgs_noxml HTTP/1.1" 200 -
+Apr 30, 2026 1:32:42 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:10280
+192.192.100.101 - - [30/Apr/2026 13:32:42] "GET /api/instance/Ord%20Kafka%201/tables HTTP/1.1" 200 -
+Apr 30, 2026 1:32:44 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:10280
+192.192.100.101 - - [30/Apr/2026 13:32:44] "GET /api/instance/Ord%20Kafka%201/describe/table/order_msgs_noxml HTTP/1.1" 200 -
+Apr 30, 2026 1:32:46 PM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:10280
+192.192.100.101 - - [30/Apr/2026 13:32:47] "GET /api/instance/Ord%20Kafka%201/table_data/order_msgs_noxml HTTP/1.1" 200 -
+192.192.100.71 - - [01/May/2026 08:59:56] "GET /api/instances HTTP/1.1" 200 -
+192.192.100.71 - - [01/May/2026 08:59:56] "GET /api/instances HTTP/1.1" 200 -
+May 01, 2026 8:59:57 AM com.f1.utils.LH rawlogArray
+INFO: LOG:AmiDBJdbcClientLog connecting to: jdbc:amisql:125.125.126.5:3280
+192.192.100.71 - - [01/May/2026 08:59:57] "GET /api/instance/TradeBook/tables HTTP/1.1" 200 -

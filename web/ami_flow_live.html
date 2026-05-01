@@ -27,7 +27,7 @@
             <button class="query-btn" id="executeQueryBtn" type="button">Execute Query</button>
           </div>
         </div>
-        <section class="schema-studio">
+        <section class="schema-studio" id="schemaStudioBar">
           <div class="schema-studio-head">
             <span class="schema-studio-title">Schema Studio</span>
             <div class="schema-studio-meta">
@@ -39,6 +39,15 @@
             <button class="query-btn" id="schemaCreateBtn" type="button">Create New Table</button>
             <button class="query-btn" id="schemaEditBtn" type="button">Open Table Editor</button>
             <button class="query-btn" id="schemaEditSelectedBtn" type="button" disabled>Edit Selected Table</button>
+          </div>
+        </section>
+        <section class="schema-studio" id="quickCreateBar" style="display:none;">
+          <div class="schema-studio-head">
+            <span class="schema-studio-title" id="quickCreateTitle">Create New Item</span>
+          </div>
+          <div class="schema-actions">
+            <button class="query-btn" id="quickCreateBtn" type="button">Create New Item</button>
+            <a class="query-btn" id="triggerDesignerBtn" href="trigger_designer.html" target="_blank" style="display:none;text-decoration:none;">Trigger Designer ↗</a>
           </div>
         </section>
         <div class="object-search">
@@ -160,6 +169,10 @@
     const editTableBtn = document.getElementById('editTableBtn');
     const schemaInstanceChip = document.getElementById('schemaInstanceChip');
     const schemaTableChip = document.getElementById('schemaTableChip');
+    const schemaStudioBar = document.getElementById('schemaStudioBar');
+    const quickCreateBar = document.getElementById('quickCreateBar');
+    const quickCreateTitle = document.getElementById('quickCreateTitle');
+    const quickCreateBtn = document.getElementById('quickCreateBtn');
     const schemaCreateBtn = document.getElementById('schemaCreateBtn');
     const schemaEditBtn = document.getElementById('schemaEditBtn');
     const schemaEditSelectedBtn = document.getElementById('schemaEditSelectedBtn');
@@ -209,6 +222,7 @@
       ['tables', 'Tables'],
       ['trigger_flows', 'Trigger Flow'],
       ['procedure_details', 'Procedures'],
+      ['method_details', 'Methods'],
       ['timer_details', 'Timers'],
       ['relationships', 'Relationships'],
       ['data_flow', 'Data Flow'],
@@ -360,6 +374,7 @@
     let composerInitialized = false;
     let editTableColumns = [];
     const tableSortPrefs = new Map();
+    const currentMethodMetaBySignature = new Map();
     let _ddlRowCounter = 0;
 
     const setSchemaContext = (instanceName, tableName) => {
@@ -636,9 +651,264 @@
     const apiUrl = (path) => `${liveApiBase}${path}`;
     const actionEditTable = (_instName, tblName) => `<button class="action-link open-edit-btn" data-table="${esc(tblName)}">Edit Structure</button>`;
     const actionViewData = (_instName, tblName) => `<button class="action-link open-view-data-btn" data-table="${esc(tblName)}">View Data</button>`;
+    const actionOpenCreateObject = (objType, label) => `<button class="query-btn open-create-object-btn" data-objtype="${esc(objType)}" type="button">${esc(label || 'Create New')}</button>`;
+    const actionOpenEditObject = (objType, objName) => `<button class="action-link open-edit-object-btn" data-objtype="${esc(objType)}" data-name="${esc(objName)}" type="button">Edit</button>`;
+    const actionOpenAddMethod = () => `<button class="query-btn open-add-method-btn" type="button">Add Method</button>`;
+    const actionOpenEditMethod = (signature, methodName) => `<button class="action-link open-edit-method-btn" data-signature="${esc(signature)}" data-method="${esc(methodName)}" type="button">Edit</button>`;
+    const actionRunDropMethod = (signature, methodName) => `<button class="action-link run-drop-method-btn" data-signature="${esc(signature)}" data-method="${esc(methodName)}" type="button">Delete</button>`;
     const procedureRowObjectType = (row) => String(row[1] || '').toUpperCase() === 'METHOD' ? 'method' : 'procedure';
+    const METHOD_EDIT_MARKER = '-- AMI_EDIT_METHOD_SIGNATURE:';
+    const TRIGGER_EDIT_MARKER = '-- AMI_EDIT_TRIGGER_NAME:';
+    const TIMER_EDIT_MARKER = '-- AMI_EDIT_TIMER_NAME:';
+
+    const createTemplateForObject = (objType) => {
+      if (objType === 'table') {
+        return [
+          'CREATE PUBLIC TABLE new_table (',
+          '  id LONG NONULL,',
+          '  name STRING',
+          ')',
+        ].join('\n');
+      }
+      if (objType === 'trigger') {
+        return [
+          'CREATE TRIGGER new_trigger OFTYPE AMISCRIPT ON table_name USE',
+          'onInsertingScript="// TODO: before insert"',
+          'onUpdatingScript="// TODO: before update"',
+          'onDeletingScript="// TODO: before delete"',
+          'canMutateRow="false"',
+          'rowVar="_row";',
+          '',
+          '-- Other documented trigger types:',
+          '-- AGGREGATE: CREATE TRIGGER trg OFTYPE AGGREGATE ON source,target USE groupBys="..." selects="...";',
+          '-- PROJECTION: CREATE TRIGGER trg OFTYPE PROJECTION ON src1,src2,target USE wheres="..." selects="...";',
+          '-- JOIN: CREATE TRIGGER trg OFTYPE JOIN ON left,right,target USE type="INNER" on="left.id==right.id" selects="...";',
+          '-- DECORATE: CREATE TRIGGER trg OFTYPE DECORATE ON source,target USE on="target.id==source.id" selects="...";',
+          '-- RELAY: CREATE TRIGGER trg OFTYPE RELAY ON source USE host="..." port="..." login="..." target="...";',
+        ].join('\n');
+      }
+      if (objType === 'procedure') {
+        return [
+          'CREATE PROCEDURE new_procedure OFTYPE AMISCRIPT USE',
+          'arguments="" script="',
+          '// TODO: procedure body',
+          '";',
+        ].join('\n');
+      }
+      if (objType === 'timer') {
+        return [
+          'CREATE TIMER new_timer OFTYPE AMISCRIPT USE',
+          'schedule="*/5 * * * *" script="',
+          '// TODO: timer body',
+          '";',
+          '',
+          '-- Common pattern: DROP TIMER timer_name; then CREATE TIMER ...',
+        ].join('\n');
+      }
+      if (objType === 'method') {
+        return [
+          'CREATE METHOD String my_method (String input) {',
+          '    // TODO: implement',
+          '    return input;',
+          '};',
+        ].join('\n');
+      }
+      if (objType === 'datasource') {
+        return [
+          '-- Template: adjust to your AMI syntax/version',
+          'CREATE DATASOURCE my_ds OFTYPE JDBC USE',
+          'url="jdbc:..." user="..." password="...";',
+        ].join('\n');
+      }
+      if (objType === 'replication') {
+        return [
+          '-- Template: adjust to your AMI syntax/version',
+          'CREATE REPLICATION my_replication USE',
+          'center="..." table="..." direction="..." enabled="true";',
+        ].join('\n');
+      }
+      return '-- TODO: create object SQL';
+    };
+
+    const getCreateConfigForView = (view) => {
+      const map = {
+        tables: { label: 'Create New Table', type: 'table' },
+        trigger_flows: { label: 'Create New Trigger', type: 'trigger' },
+        procedure_details: { label: 'Create New Procedure', type: 'procedure' },
+        method_details: { label: 'Create New Method', type: 'method' },
+        timer_details: { label: 'Create New Timer', type: 'timer' },
+        datasources: { label: 'Create New Datasource', type: 'datasource' },
+        external_mappings: { label: 'Create New Replication', type: 'replication' },
+        relationships: { label: 'Create New Item', type: 'table' },
+        data_flow: { label: 'Create New Item', type: 'table' },
+        business_metrics: { label: 'Create New Item', type: 'table' },
+        overview: { label: 'Create New Item', type: 'table' },
+      };
+      return map[view] || { label: 'Create New Item', type: 'table' };
+    };
+
+    const triggerDesignerBtn = document.getElementById('triggerDesignerBtn');
+
+    const updateCreateControlsForView = (view) => {
+      const isTables = view === 'tables';
+      schemaStudioBar.style.display = isTables ? '' : 'none';
+      quickCreateBar.style.display = isTables ? 'none' : '';
+      const isTriggers = view === 'trigger_flows';
+      triggerDesignerBtn.style.display = isTriggers ? '' : 'none';
+      if (isTriggers && currentInstance) {
+        const base = `${liveApiBase}`.replace(/\/$/, '');
+        triggerDesignerBtn.href = `trigger_designer.html?api=${encodeURIComponent(base)}&instance=${encodeURIComponent(currentInstance)}`;
+      }
+      if (!isTables) {
+        const cfg = getCreateConfigForView(view);
+        quickCreateTitle.textContent = cfg.label;
+        quickCreateBtn.textContent = cfg.label;
+        quickCreateBtn.dataset.objtype = cfg.type;
+      }
+    };
+
+    const openQueryPanelWithSql = (sql) => {
+      queryPanel.classList.add('open');
+      queryInput.value = String(sql || '').trim();
+      queryInput.focus();
+      queryInput.setSelectionRange(queryInput.value.length, queryInput.value.length);
+    };
+
+    const normalizeMethodDdl = (ddlText, signature, returnType = 'String') => {
+      const ddl = String(ddlText || '').trim();
+      if (!ddl) {
+        const rt = String(returnType || 'String').toLowerCase();
+        let defaultReturn = 'return null;';
+        if (rt === 'void') defaultReturn = '';
+        else if (rt === 'boolean') defaultReturn = 'return false;';
+        else if (rt === 'double' || rt === 'float') defaultReturn = 'return 0.0;';
+        else if (rt === 'long') defaultReturn = 'return 0L;';
+        else if (rt === 'int' || rt === 'integer' || rt === 'short' || rt === 'byte') defaultReturn = 'return 0;';
+        else if (rt === 'string' || rt === 'char' || rt === 'character') defaultReturn = 'return "";';
+
+        const body = ['    // TODO: update method body'];
+        if (defaultReturn) body.push(`    ${defaultReturn}`);
+        return [
+          `CREATE METHOD ${returnType || 'String'} ${signature} {`,
+          ...body,
+          '};',
+        ].join('\n');
+      }
+      return ddl.endsWith(';') ? ddl : `${ddl};`;
+    };
 
     tableWrap.addEventListener('click', async (e) => {
+      const createObjBtn = e.target.closest('.open-create-object-btn');
+      if (createObjBtn) {
+        const objType = String(createObjBtn.dataset.objtype || '').trim().toLowerCase();
+        if (objType === 'table') {
+          openCreateTable();
+          return;
+        }
+        openQueryPanelWithSql(createTemplateForObject(objType));
+        return;
+      }
+
+      const editObjBtn = e.target.closest('.open-edit-object-btn');
+      if (editObjBtn && currentInstance) {
+        const objType = String(editObjBtn.dataset.objtype || '').trim().toLowerCase();
+        const objName = String(editObjBtn.dataset.name || '').trim();
+        if (!objType || !objName) {
+          alert('Missing object metadata for edit.');
+          return;
+        }
+        if (objType === 'table') {
+          setSchemaContext(currentInstance, objName);
+          openEditTable(objName);
+          return;
+        }
+        try {
+          const url = apiUrl(`/api/instance/${encodeURIComponent(currentInstance)}/describe/${encodeURIComponent(objType)}/${encodeURIComponent(objName)}`);
+          const data = await fetchJsonChecked(url);
+          const ddl = String(data.ddl || '').trim();
+          if (objType === 'trigger') {
+            openQueryPanelWithSql(
+              [
+                `${TRIGGER_EDIT_MARKER} ${objName}`,
+                `-- Edit trigger ${objName}`,
+                '-- Running this will drop existing trigger first, then execute CREATE TRIGGER below.',
+                '',
+                ddl || `-- Unable to load DDL for ${objType} ${objName}`,
+              ].join('\n')
+            );
+          } else if (objType === 'timer') {
+            openQueryPanelWithSql(
+              [
+                `${TIMER_EDIT_MARKER} ${objName}`,
+                `-- Edit timer ${objName}`,
+                '-- Running this will drop existing timer first, then execute CREATE TIMER below.',
+                '',
+                ddl || `-- Unable to load DDL for ${objType} ${objName}`,
+              ].join('\n')
+            );
+          } else {
+            openQueryPanelWithSql(ddl || `-- Unable to load DDL for ${objType} ${objName}`);
+          }
+        } catch (err) {
+          openQueryPanelWithSql(`-- Unable to load DDL for ${objType} ${objName}\n-- ${String(err && err.message ? err.message : err)}`);
+        }
+        return;
+      }
+
+      const addMethodBtn = e.target.closest('.open-add-method-btn');
+      if (addMethodBtn) {
+        openQueryPanelWithSql(
+          [
+            'CREATE METHOD String my_method (String input) {',
+            '    // TODO: implement',
+            '    return input;',
+            '};',
+          ].join('\n')
+        );
+        return;
+      }
+
+      const editMethodBtn = e.target.closest('.open-edit-method-btn');
+      if (editMethodBtn && currentInstance) {
+        const signature = String(editMethodBtn.dataset.signature || '').trim();
+        const methodName = String(editMethodBtn.dataset.method || '').trim();
+        if (!signature) {
+          alert(`Missing method signature for ${methodName || 'method'}.`);
+          return;
+        }
+        const meta = currentMethodMetaBySignature.get(signature) || {};
+        const ddl = normalizeMethodDdl(meta.ddl, signature, meta.returnType || 'String');
+        openQueryPanelWithSql(
+          [
+            `${METHOD_EDIT_MARKER} ${signature}`,
+            `-- Edit ${methodName || signature}`,
+            '-- Run this CREATE METHOD statement directly (single statement).',
+            '-- If replacement fails due to existing signature, use Delete first, then run this again.',
+            '',
+            ddl,
+          ].join('\n')
+        );
+        return;
+      }
+
+      const dropMethodBtn = e.target.closest('.run-drop-method-btn');
+      if (dropMethodBtn && currentInstance) {
+        const signature = String(dropMethodBtn.dataset.signature || '').trim();
+        const methodName = String(dropMethodBtn.dataset.method || '').trim() || signature;
+        if (!signature) {
+          alert(`Missing method signature for ${methodName || 'method'}.`);
+          return;
+        }
+        if (!confirm(`Drop method ${methodName} (${signature}) from ${currentInstance}?\nThis cannot be undone.`)) return;
+        try {
+          await executeSql(`DROP METHOD ${signature}`);
+          if (currentView) loadView(currentInstance, currentView, null);
+        } catch (err) {
+          alert(`Drop failed: ${err.message || err}`);
+        }
+        return;
+      }
+
       const sortableTh = e.target.closest('th.sortable');
       if (sortableTh) {
         const table = sortableTh.closest('table');
@@ -988,7 +1258,7 @@
         tableWrap.querySelector('.stack').insertAdjacentHTML('beforeend', renderDescribable(
           ['Trigger', 'Type', 'Inputs', 'Output', 'Enabled', 'Priority', 'Actions'],
           flows.map((t) => [t.trigger, t.type, (t.input_tables || []).join(', '), formatTriggerOutput(t), t.enabled, t.priority,
-            actionDrop('trigger', t.trigger)]),
+            actionOpenEditObject('trigger', t.trigger) + actionDrop('trigger', t.trigger)]),
           {0: 'trigger'},
           new Set([6])
         ));
@@ -1005,10 +1275,56 @@
           ['Procedure', 'Type', 'Return', 'Owner', 'Arguments', 'Actions'],
           (p.rows || []).map((r) => {
             const objType = String(r.procedure_type || '').toUpperCase() === 'METHOD' ? 'method' : 'procedure';
-            return [r.name, r.procedure_type, r.return_type, r.owner, r.arguments, actionDrop(objType, r.name)];
+            return [r.name, r.procedure_type, r.return_type, r.owner, r.arguments,
+              actionOpenEditObject(objType, r.name) + actionDrop(objType, r.name)];
           }),
           {0: (row) => procedureRowObjectType(row)},
           new Set([5])
+        );
+        return;
+      }
+
+      if (view === 'method_details') {
+        const columns = Array.isArray(p.columns) && p.columns.length ? p.columns : ['TargetType', 'MethodName', 'ReturnType', 'Definition', 'DefinedBy'];
+        const rawRows = Array.isArray(p.raw_rows) ? p.raw_rows : [];
+        const detailRows = Array.isArray(p.rows) ? p.rows : [];
+        const byKey = (row, key) => {
+          if (!row || typeof row !== 'object') return '';
+          if (Object.prototype.hasOwnProperty.call(row, key)) return row[key];
+          const found = Object.keys(row).find((k) => String(k).toLowerCase() === String(key).toLowerCase());
+          return found ? row[found] : '';
+        };
+        const byKeyLower = (row, key) => byKey(row, key);
+        const detailBySignature = new Map();
+        detailRows.forEach((row) => {
+          const sig = String(row.options_preview || '').trim();
+          if (sig) detailBySignature.set(sig, row);
+        });
+        currentMethodMetaBySignature.clear();
+        const methodNameCol = Math.max(columns.findIndex((c) => String(c).toLowerCase() === 'methodname'), 0);
+        const userRows = rawRows.filter((row) => String(byKey(row, 'DefinedBy') || '').toUpperCase() === 'USER');
+        const headers = [...columns, 'Actions'];
+        const rows = userRows.map((row) => {
+          const signature = String(byKeyLower(row, 'Definition') || '').trim();
+          const methodName = String(byKeyLower(row, 'MethodName') || '').trim();
+          const returnType = String(byKeyLower(row, 'ReturnType') || '').trim();
+          const detail = detailBySignature.get(signature);
+          currentMethodMetaBySignature.set(signature, {
+            methodName,
+            signature,
+            returnType,
+            ddl: detail && typeof detail.ddl === 'string' ? detail.ddl : '',
+          });
+          return [
+            ...columns.map((col) => byKey(row, col)),
+            actionOpenEditMethod(signature, methodName) + actionRunDropMethod(signature, methodName),
+          ];
+        });
+        tableWrap.innerHTML = renderDescribable(
+          headers,
+          rows,
+          {[methodNameCol]: 'method'},
+          new Set([headers.length - 1])
         );
         return;
       }
@@ -1017,7 +1333,7 @@
         tableWrap.innerHTML = renderDescribable(
           ['Timer', 'Type', 'Priority', 'Schedule', 'Enabled', 'Next Run', 'Actions'],
           (p.rows || []).map((r) => [r.name, r.timer_type, r.priority, r.schedule, r.enabled, r.next_run_time,
-            actionDrop('timer', r.name)]),
+            actionOpenEditObject('timer', r.name) + actionDrop('timer', r.name)]),
           {0: 'timer'},
           new Set([6])
         );
@@ -1112,6 +1428,7 @@
     const loadView = async (instanceName, view, btn) => {
       setSchemaContext(instanceName, selectedTable);
       currentView = view;
+      updateCreateControlsForView(view);
       tableWrap.dataset.sortKey = makeSortKey(instanceName, view);
       _ddlRowCounter = 0;
       title.textContent = `${instanceName} / ${view}`;
@@ -1177,6 +1494,40 @@
       let query = String(queryInput.value || '').trim();
       if (!query) return;
 
+      let editMethodSignature = '';
+      let editTriggerName = '';
+      let editTimerName = '';
+      if (query.startsWith(METHOD_EDIT_MARKER)) {
+        const lines = query.split(/\r?\n/);
+        const first = String(lines[0] || '');
+        editMethodSignature = first.slice(METHOD_EDIT_MARKER.length).trim();
+        query = lines.slice(1).join('\n').trim();
+      } else if (query.startsWith(TRIGGER_EDIT_MARKER)) {
+        const lines = query.split(/\r?\n/);
+        const first = String(lines[0] || '');
+        editTriggerName = first.slice(TRIGGER_EDIT_MARKER.length).trim();
+        query = lines.slice(1).join('\n').trim();
+      } else if (query.startsWith(TIMER_EDIT_MARKER)) {
+        const lines = query.split(/\r?\n/);
+        const first = String(lines[0] || '');
+        editTimerName = first.slice(TIMER_EDIT_MARKER.length).trim();
+        query = lines.slice(1).join('\n').trim();
+      }
+
+      // Strip single-line comments from the beginning so query checks work on actual SQL.
+      while (query.startsWith('--')) {
+        const nl = query.indexOf('\n');
+        if (nl < 0) {
+          query = '';
+          break;
+        }
+        query = query.slice(nl + 1).trim();
+      }
+      if (!query) {
+        alert('Query is empty.');
+        return;
+      }
+
       const limitText = String(queryLimitInput.value || '').trim();
       if (limitText) {
         const limitNum = Number(limitText);
@@ -1200,9 +1551,7 @@
       }
       const timeoutMs = Math.round(timeoutSec * 1000);
 
-      statusEl.textContent = 'Executing query...';
-      renderLoading(`Running query on ${currentInstance}...`);
-      try {
+      const executeSqlWithTimeout = async (sql) => {
         const controller = new AbortController();
         const t = setTimeout(() => controller.abort(), timeoutMs);
         let res;
@@ -1210,7 +1559,7 @@
           res = await fetch(apiUrl(`/api/instance/${encodeURIComponent(currentInstance)}/query`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sql: query }),
+            body: JSON.stringify({ sql }),
             signal: controller.signal,
           });
         } finally {
@@ -1218,8 +1567,29 @@
         }
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        return data;
+      };
+
+      statusEl.textContent = 'Executing query...';
+      renderLoading(`Running query on ${currentInstance}...`);
+      try {
+        if (editMethodSignature) {
+          await executeSqlWithTimeout(`DROP METHOD ${editMethodSignature}`);
+        } else if (editTriggerName) {
+          await executeSqlWithTimeout(`DROP TRIGGER ${editTriggerName}`);
+        } else if (editTimerName) {
+          await executeSqlWithTimeout(`DROP TIMER ${editTimerName}`);
+        }
+        const data = await executeSqlWithTimeout(query);
         renderQueryResult(data);
         statusEl.textContent = `Query executed in ${fmt(data.elapsed_ms)} ms`;
+        if (editMethodSignature && currentView === 'method_details') {
+          await loadView(currentInstance, currentView, null);
+        } else if (editTriggerName && currentView === 'trigger_flows') {
+          await loadView(currentInstance, currentView, null);
+        } else if (editTimerName && currentView === 'timer_details') {
+          await loadView(currentInstance, currentView, null);
+        }
       } catch (err) {
         if (err && err.name === 'AbortError') {
           renderError(`Query timed out after ${timeoutSec} seconds.`);
@@ -1263,6 +1633,15 @@
     });
 
     queryRunBtn.addEventListener('click', runQueryFromInput);
+
+    quickCreateBtn.addEventListener('click', () => {
+      const objType = String(quickCreateBtn.dataset.objtype || '').trim().toLowerCase();
+      if (objType === 'table') {
+        openCreateTable();
+        return;
+      }
+      openQueryPanelWithSql(createTemplateForObject(objType));
+    });
 
     queryInput.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
