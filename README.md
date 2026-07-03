@@ -91,10 +91,11 @@ export AMI_DB_PASSWORD='your-password'
 ```
 
 Open:
-- `http://localhost:8080/index.html`
 - `http://localhost:8080/ami_flow_live.html`
+- `http://localhost:8080/`
 
 Notes:
+- The site root now redirects to `ami_flow_live.html`, so opening `http://localhost:8080/` lands on the live viewer.
 - `ami_flow_live.html` fetches data from `/api/*` on each click, so it stays connected to AMI in real time.
 - Existing documentation generation (`scripts/document_tables.py`) remains unchanged for snapshot/export use cases.
 
