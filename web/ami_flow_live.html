@@ -1307,6 +1307,87 @@
       svg.innerHTML = "<defs><marker id='arrow' markerWidth='9' markerHeight='6' refX='8' refY='3' orient='auto'><path d='M0,0 L9,3 L0,6 z' fill='#8f8a84'></path></marker></defs>" + labels + edgeLines.join('') + sourceNodes + triggerNodes + targetNodes;
     };
 
+    const downloadSvgAsPng = async (svg, filename) => {
+      if (!svg) throw new Error('Trigger flow chart is not available.');
+      const clone = svg.cloneNode(true);
+      if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      if (!clone.getAttribute('xmlns:xlink')) clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+      const exportStyle = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      exportStyle.textContent = `
+        .lineage-label { fill:#594f46; font-size:10px; font-family:Segoe UI,Tahoma,sans-serif; }
+        .lineage-label-tspan { dominant-baseline:middle; }
+        .lineage-edge { stroke:#8f8a84; stroke-width:1.4; fill:none; marker-end:url(#arrow); }
+        .lineage-node-table { fill:#e8f3f6; stroke:#0b728f; stroke-width:1.1; }
+        .lineage-node-trigger { fill:#fce8cc; stroke:#c77d1a; stroke-width:1.1; }
+        .lineage-node-instance { fill:#e8f3f6; stroke:#0b728f; stroke-width:1.1; }
+        .lineage-node-external { fill:#f1efe9; stroke:#8f8a84; stroke-width:1.1; }
+        .lineage-node-datasource { fill:#e8f5e9; stroke:#2f7d4a; stroke-width:1.1; }
+        .lineage-node-replication { fill:#eef4fb; stroke:#3f6ea7; stroke-width:1.1; }
+        .lineage-node-relay { fill:#fff0dc; stroke:#c77d1a; stroke-width:1.1; }
+      `;
+      clone.insertBefore(exportStyle, clone.firstChild);
+
+      const viewBox = clone.viewBox && clone.viewBox.baseVal ? clone.viewBox.baseVal : null;
+      const width = Math.max(1, Math.ceil(viewBox && viewBox.width ? viewBox.width : Number(clone.getAttribute('width')) || 760));
+      const height = Math.max(1, Math.ceil(viewBox && viewBox.height ? viewBox.height : Number(clone.getAttribute('height')) || 520));
+      const scale = 2;
+
+      const background = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      background.setAttribute('x', '0');
+      background.setAttribute('y', '0');
+      background.setAttribute('width', String(width));
+      background.setAttribute('height', String(height));
+      background.setAttribute('fill', '#ffffff');
+      clone.insertBefore(background, exportStyle.nextSibling);
+
+      const serializer = new XMLSerializer();
+      const source = serializer.serializeToString(clone);
+      const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+
+      try {
+        const image = new Image();
+        image.decoding = 'async';
+        await new Promise((resolve, reject) => {
+          image.onload = resolve;
+          image.onerror = () => reject(new Error('Unable to render the chart image.'));
+          image.src = url;
+        });
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width * scale;
+        canvas.height = height * scale;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Canvas export is not supported in this browser.');
+        ctx.scale(scale, scale);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(image, 0, 0, width, height);
+
+        const pngBlob = await new Promise((resolve, reject) => {
+          canvas.toBlob((result) => {
+            if (!result) {
+              reject(new Error('Failed to create PNG image.'));
+              return;
+            }
+            resolve(result);
+          }, 'image/png');
+        });
+
+        const href = URL.createObjectURL(pngBlob);
+        const a = document.createElement('a');
+        a.href = href;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(href);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    };
+
     const setMeta = (items) => {
       meta.innerHTML = items.map(([n, v]) => `<span class="meta-pill"><span class="n">${esc(n)}:</span><span class="v">${esc(fmt(v))}</span></span>`).join('');
     };
@@ -1350,7 +1431,7 @@
 
       if (view === 'trigger_flows') {
         const flows = p.rows || [];
-        tableWrap.innerHTML = `<div class="stack"><div class="chart-card"><p id="lineageSummary"></p><div class="svg-wrap"><svg id="lineageGraph" width="100%" height="520" role="img" aria-label="Trigger flow chart"></svg></div></div></div>`;
+        tableWrap.innerHTML = `<div class="stack"><div class="chart-card"><div class="chart-card-head"><p id="lineageSummary"></p><button class="query-btn" id="downloadTriggerFlowBtn" type="button">Download Image</button></div><div class="svg-wrap"><svg id="lineageGraph" width="100%" height="520" role="img" aria-label="Trigger flow chart"></svg></div></div></div>`;
         tableWrap.querySelector('.stack').insertAdjacentHTML('beforeend', renderDescribable(
           ['Trigger', 'Type', 'Inputs', 'Output', 'Enabled', 'Priority', 'Actions'],
           flows.map((t) => [t.trigger, t.type, (t.input_tables || []).join(', '), formatTriggerOutput(t), t.enabled, t.priority,
@@ -1363,6 +1444,27 @@
           document.getElementById('lineageSummary'),
           flows
         );
+        const triggerFlowDownloadBtn = document.getElementById('downloadTriggerFlowBtn');
+        if (triggerFlowDownloadBtn) {
+          triggerFlowDownloadBtn.addEventListener('click', async () => {
+            const svg = document.getElementById('lineageGraph');
+            const prevText = triggerFlowDownloadBtn.textContent;
+            triggerFlowDownloadBtn.disabled = true;
+            triggerFlowDownloadBtn.textContent = 'Preparing...';
+            statusEl.textContent = 'Exporting trigger flow image...';
+            try {
+              const baseName = `trigger_flow_${String(currentInstance || 'instance').replace(/[^A-Za-z0-9._-]+/g, '_')}.png`;
+              await downloadSvgAsPng(svg, baseName);
+              statusEl.textContent = `Downloaded ${baseName}`;
+            } catch (err) {
+              renderError(err && err.message ? err.message : String(err));
+              statusEl.textContent = 'Trigger flow image download failed';
+            } finally {
+              triggerFlowDownloadBtn.disabled = false;
+              triggerFlowDownloadBtn.textContent = prevText;
+            }
+          });
+        }
         return;
       }
 
@@ -2026,7 +2128,7 @@
         statusEl.textContent = `Downloaded ${filename}`;
       } catch (err) {
         renderError(err && err.message ? err.message : String(err));
-        statusEl.textContent = isGlobalDataflow ? 'Global markdown download failed' : 'DB design download failed';
+        statusEl.textContent = 'DB design download failed';
       } finally {
         downloadDesignBtn.disabled = false;
         downloadDesignBtn.textContent = prevText;

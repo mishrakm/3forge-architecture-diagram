@@ -34,6 +34,8 @@ body { margin:0; font-family:Segoe UI,Tahoma,sans-serif; background:var(--bg); c
 .k .v { margin-top:4px; font-weight:700; }
 .stack { display:grid; gap:12px; }
 .chart-card { border:1px solid var(--line); border-radius:10px; background:#fcfbf9; padding:10px; }
+.chart-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:8px; }
+.chart-card-head p { margin:0; color:var(--muted); font-size:12px; }
 .chart-card p { margin:0 0 8px; color:var(--muted); font-size:12px; }
 .svg-wrap { overflow:auto; border:1px solid #f2ece2; border-radius:10px; background:#fff; }
 .lineage-label { fill:#594f46; font-size:10px; font-family:Segoe UI,Tahoma,sans-serif; }
