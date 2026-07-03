@@ -1,9 +1,9 @@
 :root { --bg:#f6f3ed; --card:#fff; --ink:#2b2926; --muted:#6a635b; --line:#e7dfd4; --brand:#0b728f; }
 * { box-sizing:border-box; }
 body { margin:0; font-family:Segoe UI,Tahoma,sans-serif; background:var(--bg); color:var(--ink); }
-.app { display:grid; grid-template-columns:320px minmax(0,1fr); min-height:100vh; }
-.left { border-right:1px solid var(--line); background:#fff; overflow:auto; }
-.right { overflow:auto; padding:16px; min-width:0; }
+.app { display:grid; grid-template-columns:320px minmax(0,1fr); height:100vh; overflow:hidden; }
+.left { border-right:1px solid var(--line); background:#fff; overflow-y:auto; min-height:0; }
+.right { display:flex; flex-direction:column; overflow:hidden; padding:16px; min-width:0; min-height:0; }
 .head { padding:14px; border-bottom:1px solid var(--line); position:sticky; top:0; background:#fff; z-index:2; }
 .head h1 { margin:0; font-size:20px; }
 .head p { margin:4px 0 0; color:var(--muted); font-size:12px; }
@@ -26,7 +26,7 @@ body { margin:0; font-family:Segoe UI,Tahoma,sans-serif; background:var(--bg); c
 .leaf { display:block; width:100%; border:0; background:transparent; text-align:left; padding:7px 12px; cursor:pointer; color:var(--ink); }
 .leaf:hover { background:#eef7fa; }
 .leaf.active { background:var(--brand); color:#fff; }
-.panel { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; min-width:0; }
+.panel { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; min-width:0; display:flex; flex-direction:column; min-height:0; flex:1; overflow:hidden; }
 .panel h2 { margin:0 0 10px; }
 .meta { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:8px; margin-bottom:10px; }
 .k { border:1px solid var(--line); border-radius:10px; padding:8px; background:#fcfbf9; }
@@ -103,7 +103,7 @@ body { margin:0; font-family:Segoe UI,Tahoma,sans-serif; background:var(--bg); c
 .schema-actions-row { display:flex; gap:8px; flex-wrap:wrap; }
 .schema-panel { display:none; }
 .schema-panel.open { display:grid; gap:10px; }
-#tableWrap { content-visibility:auto; contain-intrinsic-size: 640px; }
+#tableWrap { content-visibility:auto; contain-intrinsic-size: 640px; flex:1 1 auto; overflow:auto; min-height:0; }
 #meta { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
 .meta-pill { display:inline-flex; gap:6px; align-items:center; border:1px solid var(--line); border-radius:999px; padding:4px 8px; background:#fcfbf9; font-size:11px; }
 .meta-pill .n { color:var(--muted); text-transform:uppercase; }

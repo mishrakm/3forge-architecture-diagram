@@ -243,10 +243,6 @@
       ['external_mappings', 'Replications'],
       ['datasources', 'Datasources'],
     ];
-    const globalViewDefs = [
-      ['global_dataflow', 'Global Dataflow'],
-    ];
-
     const fmt = (v) => (v === null || v === undefined ? '-' : String(v));
     const esc = (v) => String(v)
       .replace(/&/g, '&amp;')
@@ -844,23 +840,12 @@
     const triggerDesignerBtn = document.getElementById('triggerDesignerBtn');
 
     const updateDownloadButtonForView = (view) => {
-      if (view === 'global_dataflow') {
-        downloadDesignBtn.textContent = 'Download Global MD';
-        downloadDesignBtn.title = 'Download the global cross-instance dataflow summary as markdown';
-        return;
-      }
       downloadDesignBtn.textContent = 'Download DB Design';
       downloadDesignBtn.title = 'Download full DB design documentation for selected instance';
     };
 
     const updateCreateControlsForView = (view) => {
       updateDownloadButtonForView(view);
-      if (view === 'global_dataflow') {
-        schemaStudioBar.style.display = 'none';
-        quickCreateBar.style.display = 'none';
-        triggerDesignerBtn.style.display = 'none';
-        return;
-      }
       const isTables = view === 'tables';
       schemaStudioBar.style.display = isTables ? '' : 'none';
       quickCreateBar.style.display = isTables ? 'none' : '';
@@ -1722,51 +1707,6 @@
       );
     };
 
-    const loadGlobalDataflow = async (btn) => {
-      setSchemaContext(null, null);
-      currentView = 'global_dataflow';
-      updateCreateControlsForView(currentView);
-      tableWrap.dataset.sortKey = makeSortKey('global', currentView);
-      title.textContent = 'Global Dataflow';
-      statusEl.textContent = 'Loading cross-instance dataflow...';
-      if (btn) {
-        document.querySelectorAll('.leaf.active').forEach((e) => e.classList.remove('active'));
-        btn.classList.add('active');
-      }
-      renderLoading('Fetching global dependencies across instances...');
-      try {
-        const data = await fetchJsonChecked(apiUrl('/api/global_dataflow'), 120000);
-        const summary = data.summary || {};
-        setMeta([
-          ['Section', 'global_dataflow'],
-          ['Instances', summary.instances || 0],
-          ['Edges', summary.edges || 0],
-          ['Replications', summary.replications || 0],
-          ['Relays', summary.relays || 0],
-          ['Datasources', summary.datasources || 0],
-          ['Errors', data.error_count || 0],
-          ['Generated (UTC)', data.generated_at_utc],
-        ]);
-        renderGlobalDataflowSection(data);
-        applySavedSortPreferences();
-        statusEl.textContent = `Global dataflow loaded in ${fmt(data.elapsed_ms)} ms`;
-        const qp = new URLSearchParams(window.location.search);
-        qp.delete('instance');
-        qp.set('view', currentView);
-        history.replaceState(null, '', `${window.location.pathname}?${qp.toString()}`);
-      } catch (err) {
-        setMeta([
-          ['Section', 'global_dataflow'],
-          ['Instances', '-'],
-          ['Edges', '-'],
-          ['Errors', '-'],
-          ['Generated (UTC)', '-'],
-        ]);
-        renderError(err && err.message ? err.message : String(err));
-        statusEl.textContent = 'Global dataflow request failed';
-      }
-    };
-
     const loadTableData = async (instanceName, tableName) => {
       setSchemaContext(instanceName, tableName);
       tableWrap.dataset.sortKey = makeSortKey(instanceName, 'table_data', tableName);
@@ -2048,20 +1988,15 @@
     });
 
     downloadDesignBtn.addEventListener('click', async () => {
-      const isGlobalDataflow = currentView === 'global_dataflow';
-      if (!isGlobalDataflow && !currentInstance) {
+      if (!currentInstance) {
         alert('Select an instance first.');
         return;
       }
-      const endpoint = isGlobalDataflow
-        ? apiUrl('/api/global_dataflow_markdown')
-        : apiUrl(`/api/instance/${encodeURIComponent(currentInstance)}/database_design`);
+      const endpoint = apiUrl(`/api/instance/${encodeURIComponent(currentInstance)}/database_design`);
       const prevText = downloadDesignBtn.textContent;
       downloadDesignBtn.disabled = true;
       downloadDesignBtn.textContent = 'Preparing...';
-      statusEl.textContent = isGlobalDataflow
-        ? 'Generating global dataflow markdown...'
-        : 'Generating full DB design documentation...';
+      statusEl.textContent = 'Generating full DB design documentation...';
       try {
         const res = await fetch(endpoint, { cache: 'no-store' });
         if (!res.ok) {
@@ -2075,9 +2010,7 @@
           throw new Error(errText);
         }
         const blob = await res.blob();
-        let filename = isGlobalDataflow
-          ? 'global_dataflow.md'
-          : `database_design_${currentInstance.replace(/[^A-Za-z0-9._-]+/g, '_')}.md`;
+        let filename = `database_design_${currentInstance.replace(/[^A-Za-z0-9._-]+/g, '_')}.md`;
         const cd = res.headers.get('content-disposition') || '';
         const m = cd.match(/filename="?([^\";]+)"?/i);
         if (m && m[1]) filename = m[1];
@@ -2115,18 +2048,6 @@
         globalMeta.textContent = `Instances: ${instances.length} | Live API connected`;
         let firstAction = null;
 
-        globalViewDefs.forEach(([key, label]) => {
-          const btn = document.createElement('button');
-          btn.className = 'leaf';
-          btn.textContent = label;
-          btn.addEventListener('click', () => loadGlobalDataflow(btn));
-          tree.appendChild(btn);
-          viewButtonMap.set(`global::${key}`, btn);
-          if (targetView === key) {
-            firstAction = () => btn.click();
-          }
-        });
-
         instances.forEach((inst, idx) => {
           const name = String(inst.name || 'instance');
           const details = document.createElement('details');
@@ -2148,10 +2069,10 @@
 
             const shouldDefault = isTarget
               ? key === targetView
-              : (!targetInstance && targetView !== 'global_dataflow' && idx === 0 && key === 'overview');
+              : (!targetInstance && idx === 0 && key === 'overview');
             if (shouldDefault) {
               firstAction = () => btn.click();
-            } else if (!firstAction && targetView !== 'global_dataflow' && idx === 0 && jdx === 0) {
+            } else if (!firstAction && idx === 0 && jdx === 0) {
               firstAction = () => btn.click();
             }
           });
