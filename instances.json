@@ -79,17 +79,6 @@
     {
       "user": "pwadmin",
       "jar_path": "./out.jar",
-      "app_code": "ami_subscribe",
-      "port": 31280,
-      "name": "Subscribe",
-      "url": "jdbc:amisql:125.125.126.5:31280",
-      "center_id": "25101",
-      "mode": "relay+center",
-      "password_encrypted": "enc:v1:NzgBAzKNRj9bZOVDl-IIwdGscH0T1DOCnI-y2f7ueZ49wo5FLU1bja-sBc2UiG--gBcbe2glcTEGdMzmI4Z_S9HumK7-ci9cs70="
-    },
-    {
-      "user": "pwadmin",
-      "jar_path": "./out.jar",
       "app_code": "ami_pending_ops",
       "port": 8280,
       "name": "Pending Book Analysis",

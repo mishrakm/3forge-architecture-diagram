@@ -12,6 +12,15 @@
       <div class="head">
         <h1>AMI Flow Viewer Live</h1>
         <p id="globalMeta">Loading instances...</p>
+        <div class="global-search-panel">
+          <label class="global-search-label" for="globalSearchInput">Global Search</label>
+          <div class="global-search-row">
+            <input id="globalSearchInput" type="text" placeholder="Find object name across all instances...">
+            <button class="query-btn" id="globalSearchBtn" type="button">Search</button>
+          </div>
+          <p class="global-search-meta" id="globalSearchMeta">Search tables, triggers, procedures, methods, timers, and datasources.</p>
+          <div class="global-search-results" id="globalSearchResults"></div>
+        </div>
       </div>
       <div class="tree" id="tree"></div>
     </aside>
@@ -209,6 +218,10 @@
     const queryRunBtn = document.getElementById('queryRunBtn');
     const queryCloseBtn = document.getElementById('queryCloseBtn');
     const tableSearchInput = document.getElementById('tableSearchInput');
+    const globalSearchInput = document.getElementById('globalSearchInput');
+    const globalSearchBtn = document.getElementById('globalSearchBtn');
+    const globalSearchMeta = document.getElementById('globalSearchMeta');
+    const globalSearchResults = document.getElementById('globalSearchResults');
     const TYPE_OPTIONS = ['STRING','LONG','INT','DOUBLE','FLOAT','BOOLEAN','UTC','UTCN','DATE','SHORT','BYTE','CHAR','ENUM','BINARY','BIGDECIMAL','BIGINTEGER','COMPLEX','UUID'];
 
     const params = new URLSearchParams(window.location.search);
@@ -229,6 +242,9 @@
       ['business_metrics', 'Metrics'],
       ['external_mappings', 'Replications'],
       ['datasources', 'Datasources'],
+    ];
+    const globalViewDefs = [
+      ['global_dataflow', 'Global Dataflow'],
     ];
 
     const fmt = (v) => (v === null || v === undefined ? '-' : String(v));
@@ -375,6 +391,9 @@
     let editTableColumns = [];
     const tableSortPrefs = new Map();
     const currentMethodMetaBySignature = new Map();
+    const viewButtonMap = new Map();
+    const instanceDetailsMap = new Map();
+    let lastGlobalSearchResults = [];
     let _ddlRowCounter = 0;
 
     const setSchemaContext = (instanceName, tableName) => {
@@ -661,6 +680,81 @@
     const TRIGGER_EDIT_MARKER = '-- AMI_EDIT_TRIGGER_NAME:';
     const TIMER_EDIT_MARKER = '-- AMI_EDIT_TIMER_NAME:';
 
+    const globalSearchTypeLabel = (value) => {
+      const labels = {
+        table: 'Table',
+        trigger: 'Trigger',
+        procedure: 'Procedure',
+        method: 'Method',
+        timer: 'Timer',
+        datasource: 'Datasource',
+      };
+      return labels[String(value || '').toLowerCase()] || fmt(value);
+    };
+
+    const renderGlobalSearchResults = (payload, queryText) => {
+      const results = Array.isArray(payload.results) ? payload.results : [];
+      lastGlobalSearchResults = results;
+      if (!queryText) {
+        globalSearchMeta.textContent = 'Search tables, triggers, procedures, methods, timers, and datasources.';
+        globalSearchResults.innerHTML = '';
+        return;
+      }
+      if (!results.length) {
+        const errors = Number(payload.error_count || 0);
+        globalSearchMeta.textContent = errors
+          ? `No matches for "${queryText}". ${errors} instance${errors === 1 ? '' : 's'} failed during search.`
+          : `No matches for "${queryText}" across ${fmt(payload.searched_instances)} instances.`;
+        globalSearchResults.innerHTML = '';
+        return;
+      }
+      const shown = Number(payload.count || results.length);
+      const total = Number(payload.total_matches || shown);
+      const errors = Number(payload.error_count || 0);
+      globalSearchMeta.textContent = `${shown}${total > shown ? ` of ${total}` : ''} matches for "${queryText}" across ${fmt(payload.searched_instances)} instances in ${fmt(payload.elapsed_ms)} ms${errors ? ` | ${errors} errors` : ''}.`;
+      globalSearchResults.innerHTML = results.map((result, index) => `
+        <button class="global-search-hit" type="button" data-result-index="${index}">
+          <span class="global-search-hit-name">${esc(result.name)}</span>
+          <span class="global-search-hit-meta">${esc(globalSearchTypeLabel(result.object_type))} | ${esc(result.instance)} | ${esc(result.view)}</span>
+          ${result.summary ? `<span class="global-search-hit-summary">${esc(result.summary)}</span>` : ''}
+        </button>
+      `).join('');
+    };
+
+    const runGlobalSearch = async () => {
+      const queryText = String(globalSearchInput.value || '').trim();
+      if (!queryText) {
+        renderGlobalSearchResults({ results: [], searched_instances: 0, error_count: 0 }, '');
+        return;
+      }
+      globalSearchBtn.disabled = true;
+      globalSearchMeta.textContent = `Searching all instances for "${queryText}"...`;
+      globalSearchResults.innerHTML = '<div class="global-search-empty">Searching...</div>';
+      try {
+        const payload = await fetchJsonChecked(apiUrl(`/api/global_search?q=${encodeURIComponent(queryText)}&limit=250`), 90000);
+        renderGlobalSearchResults(payload, queryText);
+      } catch (err) {
+        lastGlobalSearchResults = [];
+        globalSearchMeta.textContent = err && err.message ? err.message : String(err);
+        globalSearchResults.innerHTML = '';
+      } finally {
+        globalSearchBtn.disabled = false;
+      }
+    };
+
+    const openGlobalSearchResult = async (result) => {
+      if (!result) return;
+      const instanceName = String(result.instance || '');
+      const view = String(result.view || 'overview');
+      const viewKey = `${instanceName.toLowerCase()}::${view}`;
+      const details = instanceDetailsMap.get(instanceName.toLowerCase());
+      if (details) details.open = true;
+      tableSearchInput.value = String(result.name || '');
+      const btn = viewButtonMap.get(viewKey) || null;
+      await loadView(instanceName, view, btn);
+      applyTableSearchFilter();
+    };
+
     const createTemplateForObject = (objType) => {
       if (objType === 'table') {
         return [
@@ -749,7 +843,24 @@
 
     const triggerDesignerBtn = document.getElementById('triggerDesignerBtn');
 
+    const updateDownloadButtonForView = (view) => {
+      if (view === 'global_dataflow') {
+        downloadDesignBtn.textContent = 'Download Global MD';
+        downloadDesignBtn.title = 'Download the global cross-instance dataflow summary as markdown';
+        return;
+      }
+      downloadDesignBtn.textContent = 'Download DB Design';
+      downloadDesignBtn.title = 'Download full DB design documentation for selected instance';
+    };
+
     const updateCreateControlsForView = (view) => {
+      updateDownloadButtonForView(view);
+      if (view === 'global_dataflow') {
+        schemaStudioBar.style.display = 'none';
+        quickCreateBar.style.display = 'none';
+        triggerDesignerBtn.style.display = 'none';
+        return;
+      }
       const isTables = view === 'tables';
       schemaStudioBar.style.display = isTables ? '' : 'none';
       quickCreateBar.style.display = isTables ? 'none' : '';
@@ -1389,6 +1500,273 @@
       );
     };
 
+    const renderGlobalDataflowGraph = (svg, summary, nodes, edges) => {
+      if (!svg || !summary) return;
+      const nodeMap = new Map((nodes || []).map((node) => [String(node.id), node]));
+      const rawEdges = Array.isArray(edges) ? edges : [];
+
+      const aggregated = new Map();
+      rawEdges.forEach((edge) => {
+        const source = String(edge.source || '');
+        const target = String(edge.target || '');
+        if (!source || !target || source === target) return;
+        const key = `${source}__${target}`;
+        if (!aggregated.has(key)) {
+          aggregated.set(key, {
+            source,
+            target,
+            count: 0,
+            byType: { replication: 0, relay: 0, datasource: 0 },
+          });
+        }
+        const item = aggregated.get(key);
+        item.count += 1;
+        const t = String(edge.type || '').toLowerCase();
+        if (Object.prototype.hasOwnProperty.call(item.byType, t)) item.byType[t] += 1;
+      });
+
+      const links = [...aggregated.values()];
+      if (!links.length) {
+        summary.textContent = 'No cross-instance dependencies found.';
+        svg.setAttribute('viewBox', '0 0 900 220');
+        svg.innerHTML = "<text x='24' y='90' class='lineage-label'>No source-target dependencies available</text>";
+        return;
+      }
+
+      const usedNodeIds = new Set();
+      links.forEach((link) => {
+        usedNodeIds.add(link.source);
+        usedNodeIds.add(link.target);
+      });
+      const graphNodes = [...usedNodeIds].map((id) => nodeMap.get(id) || { id, label: id, type: 'external' });
+      graphNodes.sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')));
+
+      const width = 1200;
+      const leftX = 260;
+      const rightX = 940;
+      const nodeW = 250;
+      const nodeH = 34;
+      const topPad = 70;
+      const rowGap = 60;
+      const sourcesOnly = new Set(links.map((l) => l.source));
+      const targetsOnly = new Set(links.map((l) => l.target));
+
+      const sourceNodes = graphNodes.filter((n) => sourcesOnly.has(String(n.id))).map((n) => String(n.id));
+      const targetNodes = graphNodes.filter((n) => targetsOnly.has(String(n.id)) && !sourcesOnly.has(String(n.id))).map((n) => String(n.id));
+      const bothNodes = graphNodes.filter((n) => sourcesOnly.has(String(n.id)) && targetsOnly.has(String(n.id))).map((n) => String(n.id));
+
+      const leftColumn = [...sourceNodes];
+      const rightColumn = [...targetNodes];
+      bothNodes.forEach((id, idx) => {
+        if (idx % 2 === 0) leftColumn.push(id);
+        else rightColumn.push(id);
+      });
+
+      const maxRows = Math.max(leftColumn.length, rightColumn.length, 1);
+      const height = Math.max(300, topPad * 2 + (maxRows - 1) * rowGap);
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+      const positions = new Map();
+      leftColumn.forEach((id, idx) => positions.set(id, { x: leftX, y: topPad + idx * rowGap }));
+      rightColumn.forEach((id, idx) => positions.set(id, { x: rightX, y: topPad + idx * rowGap }));
+      graphNodes.forEach((n, idx) => {
+        const id = String(n.id);
+        if (!positions.has(id)) {
+          positions.set(id, { x: idx % 2 === 0 ? leftX : rightX, y: topPad + (idx % maxRows) * rowGap });
+        }
+      });
+
+      const drawNode = (x, y, label, klass) => {
+        const safeLabel = esc(String(label || '-'));
+        return `<g><rect class='${klass}' x='${x - nodeW / 2}' y='${y - nodeH / 2}' width='${nodeW}' height='${nodeH}' rx='7'></rect><text class='lineage-label' x='${x}' y='${y + 1}' text-anchor='middle'>${safeLabel}</text></g>`;
+      };
+
+      const nodeClassFor = (node) => {
+        const type = String(node && node.type || 'external').toLowerCase();
+        if (type === 'instance') return 'lineage-node-instance';
+        if (type === 'datasource') return 'lineage-node-datasource';
+        return 'lineage-node-external';
+      };
+
+      const labels = [
+        `<text class='lineage-label' x='${leftX}' y='28' text-anchor='middle'>Source Instances</text>`,
+        `<text class='lineage-label' x='${rightX}' y='28' text-anchor='middle'>Target Instances</text>`,
+      ].join('');
+
+      const edgeLines = [];
+      links.forEach((link) => {
+        const sourcePos = positions.get(String(link.source));
+        const targetPos = positions.get(String(link.target));
+        if (!sourcePos || !targetPos) return;
+        const sx = sourcePos.x + nodeW / 2;
+        const sy = sourcePos.y;
+        const tx = targetPos.x - nodeW / 2;
+        const ty = targetPos.y;
+        const cx1 = sx + 110;
+        const cx2 = tx - 110;
+        edgeLines.push(`<path class='lineage-edge' d='M ${sx} ${sy} C ${cx1} ${sy}, ${cx2} ${ty}, ${tx} ${ty}'></path>`);
+        const mx = (sx + tx) / 2;
+        const my = (sy + ty) / 2;
+        const labelParts = [];
+        if (link.byType.replication) labelParts.push(`R:${link.byType.replication}`);
+        if (link.byType.relay) labelParts.push(`L:${link.byType.relay}`);
+        if (link.byType.datasource) labelParts.push(`D:${link.byType.datasource}`);
+        const edgeLabel = `${link.count}${labelParts.length ? ` (${labelParts.join(',')})` : ''}`;
+        edgeLines.push(`<text class='lineage-label' x='${mx}' y='${my - 4}' text-anchor='middle'>${esc(edgeLabel)}</text>`);
+      });
+
+      const nodeDraws = graphNodes.map((node) => {
+        const pos = positions.get(String(node.id));
+        if (!pos) return '';
+        return drawNode(pos.x, pos.y, String(node.label || node.id), nodeClassFor(node));
+      }).join('');
+
+      summary.textContent = `Network links: ${links.length} | Raw edges: ${rawEdges.length}`;
+      svg.innerHTML = "<defs><marker id='arrow' markerWidth='9' markerHeight='6' refX='8' refY='3' orient='auto'><path d='M0,0 L9,3 L0,6 z' fill='#8f8a84'></path></marker></defs>" + labels + edgeLines.join('') + nodeDraws;
+    };
+
+    const renderGlobalDataflowTree = (tree) => {
+      const groups = Array.isArray(tree) ? tree : [];
+      if (!groups.length) {
+        return '<div class="global-flow-tree-empty">No cross-instance dependencies found.</div>';
+      }
+      return `<div class="global-flow-tree">${groups.map((source) => {
+        const targets = Array.isArray(source.targets) ? source.targets : [];
+        return `
+          <details class="global-flow-source" open>
+            <summary>
+              <span class="global-flow-source-name">${esc(source.source_label || '-')}</span>
+              <span class="global-flow-source-meta">${esc(fmt(source.source_type))} | ${esc(fmt(source.edge_count))} edges</span>
+            </summary>
+            <div class="global-flow-targets">
+              ${targets.map((target) => {
+                const links = Array.isArray(target.links) ? target.links : [];
+                return `
+                  <details class="global-flow-target">
+                    <summary>
+                      <span class="global-flow-target-name">${esc(target.target_label || '-')}</span>
+                      <span class="global-flow-target-meta">${esc(fmt(target.target_type))} | ${esc(fmt(target.edge_count))} links</span>
+                    </summary>
+                    <ul class="global-flow-links">
+                      ${links.map((link) => {
+                        const bits = [];
+                        if (link.detail) bits.push(esc(link.detail));
+                        if (link.status) bits.push(esc(link.status));
+                        return `
+                          <li>
+                            <span class="global-flow-link-label">${esc(link.label || link.type || 'transport')}</span>
+                            <span class="global-flow-link-type">${esc(fmt(link.type))}</span>
+                            ${bits.length ? `<div class="global-flow-link-detail">${bits.join(' | ')}</div>` : ''}
+                          </li>
+                        `;
+                      }).join('')}
+                    </ul>
+                  </details>
+                `;
+              }).join('')}
+            </div>
+          </details>
+        `;
+      }).join('')}</div>`;
+    };
+
+    const renderGlobalDataflowSection = (data) => {
+      const edges = Array.isArray(data.edges) ? data.edges : [];
+      const nodes = Array.isArray(data.nodes) ? data.nodes : [];
+      const tree = Array.isArray(data.tree) ? data.tree : [];
+      const summary = data.summary || {};
+      tableWrap.innerHTML = `
+        <div class="stack">
+          <div class="chart-card">
+            <p id="globalDataflowSummary"></p>
+            <div class="svg-wrap"><svg id="globalDataflowGraph" width="100%" height="620" role="img" aria-label="Cross-instance dataflow chart"></svg></div>
+          </div>
+          <div class="chart-card">
+            <p>Summary detail tree</p>
+            <div class="global-flow-summary-grid">
+              <div class="global-flow-summary-pill"><span>Instances</span><strong>${esc(fmt(summary.instances || 0))}</strong></div>
+              <div class="global-flow-summary-pill"><span>External Nodes</span><strong>${esc(fmt(summary.external_nodes || 0))}</strong></div>
+              <div class="global-flow-summary-pill"><span>Replications</span><strong>${esc(fmt(summary.replications || 0))}</strong></div>
+              <div class="global-flow-summary-pill"><span>Relays</span><strong>${esc(fmt(summary.relays || 0))}</strong></div>
+              <div class="global-flow-summary-pill"><span>Datasources</span><strong>${esc(fmt(summary.datasources || 0))}</strong></div>
+              <div class="global-flow-summary-pill"><span>Errors</span><strong>${esc(fmt(data.error_count || 0))}</strong></div>
+            </div>
+            ${renderGlobalDataflowTree(tree)}
+          </div>
+        </div>`;
+      tableWrap.querySelector('.stack').insertAdjacentHTML('beforeend', renderRows(
+        ['Source', 'Transport', 'Detail', 'Target', 'Status'],
+        edges.map((edge) => {
+          const sourceNode = nodes.find((node) => String(node.id) === String(edge.source));
+          const targetNode = nodes.find((node) => String(node.id) === String(edge.target));
+          return [
+            sourceNode ? sourceNode.label : edge.source,
+            edge.label || edge.type,
+            edge.detail || '-',
+            targetNode ? targetNode.label : edge.target,
+            edge.status || '-',
+          ];
+        })
+      ));
+      if (data.error_count) {
+        tableWrap.querySelector('.stack').insertAdjacentHTML('beforeend', renderRows(
+          ['Instance', 'Error'],
+          (data.errors || []).map((row) => [row.instance, row.error])
+        ));
+      }
+      renderGlobalDataflowGraph(
+        document.getElementById('globalDataflowGraph'),
+        document.getElementById('globalDataflowSummary'),
+        nodes,
+        edges
+      );
+    };
+
+    const loadGlobalDataflow = async (btn) => {
+      setSchemaContext(null, null);
+      currentView = 'global_dataflow';
+      updateCreateControlsForView(currentView);
+      tableWrap.dataset.sortKey = makeSortKey('global', currentView);
+      title.textContent = 'Global Dataflow';
+      statusEl.textContent = 'Loading cross-instance dataflow...';
+      if (btn) {
+        document.querySelectorAll('.leaf.active').forEach((e) => e.classList.remove('active'));
+        btn.classList.add('active');
+      }
+      renderLoading('Fetching global dependencies across instances...');
+      try {
+        const data = await fetchJsonChecked(apiUrl('/api/global_dataflow'), 120000);
+        const summary = data.summary || {};
+        setMeta([
+          ['Section', 'global_dataflow'],
+          ['Instances', summary.instances || 0],
+          ['Edges', summary.edges || 0],
+          ['Replications', summary.replications || 0],
+          ['Relays', summary.relays || 0],
+          ['Datasources', summary.datasources || 0],
+          ['Errors', data.error_count || 0],
+          ['Generated (UTC)', data.generated_at_utc],
+        ]);
+        renderGlobalDataflowSection(data);
+        applySavedSortPreferences();
+        statusEl.textContent = `Global dataflow loaded in ${fmt(data.elapsed_ms)} ms`;
+        const qp = new URLSearchParams(window.location.search);
+        qp.delete('instance');
+        qp.set('view', currentView);
+        history.replaceState(null, '', `${window.location.pathname}?${qp.toString()}`);
+      } catch (err) {
+        setMeta([
+          ['Section', 'global_dataflow'],
+          ['Instances', '-'],
+          ['Edges', '-'],
+          ['Errors', '-'],
+          ['Generated (UTC)', '-'],
+        ]);
+        renderError(err && err.message ? err.message : String(err));
+        statusEl.textContent = 'Global dataflow request failed';
+      }
+    };
+
     const loadTableData = async (instanceName, tableName) => {
       setSchemaContext(instanceName, tableName);
       tableWrap.dataset.sortKey = makeSortKey(instanceName, 'table_data', tableName);
@@ -1654,16 +2032,36 @@
     const tableWrapObserver = new MutationObserver(() => applyTableSearchFilter());
     tableWrapObserver.observe(tableWrap, { childList: true, subtree: true });
 
+    globalSearchBtn.addEventListener('click', runGlobalSearch);
+    globalSearchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        runGlobalSearch();
+      }
+    });
+    globalSearchResults.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-result-index]');
+      if (!btn) return;
+      const index = Number(btn.dataset.resultIndex);
+      if (!Number.isInteger(index) || index < 0 || index >= lastGlobalSearchResults.length) return;
+      await openGlobalSearchResult(lastGlobalSearchResults[index]);
+    });
+
     downloadDesignBtn.addEventListener('click', async () => {
-      if (!currentInstance) {
+      const isGlobalDataflow = currentView === 'global_dataflow';
+      if (!isGlobalDataflow && !currentInstance) {
         alert('Select an instance first.');
         return;
       }
-      const endpoint = apiUrl(`/api/instance/${encodeURIComponent(currentInstance)}/database_design`);
+      const endpoint = isGlobalDataflow
+        ? apiUrl('/api/global_dataflow_markdown')
+        : apiUrl(`/api/instance/${encodeURIComponent(currentInstance)}/database_design`);
       const prevText = downloadDesignBtn.textContent;
       downloadDesignBtn.disabled = true;
       downloadDesignBtn.textContent = 'Preparing...';
-      statusEl.textContent = 'Generating full DB design documentation...';
+      statusEl.textContent = isGlobalDataflow
+        ? 'Generating global dataflow markdown...'
+        : 'Generating full DB design documentation...';
       try {
         const res = await fetch(endpoint, { cache: 'no-store' });
         if (!res.ok) {
@@ -1677,7 +2075,9 @@
           throw new Error(errText);
         }
         const blob = await res.blob();
-        let filename = `database_design_${currentInstance.replace(/[^A-Za-z0-9._-]+/g, '_')}.md`;
+        let filename = isGlobalDataflow
+          ? 'global_dataflow.md'
+          : `database_design_${currentInstance.replace(/[^A-Za-z0-9._-]+/g, '_')}.md`;
         const cd = res.headers.get('content-disposition') || '';
         const m = cd.match(/filename="?([^\";]+)"?/i);
         if (m && m[1]) filename = m[1];
@@ -1693,7 +2093,7 @@
         statusEl.textContent = `Downloaded ${filename}`;
       } catch (err) {
         renderError(err && err.message ? err.message : String(err));
-        statusEl.textContent = 'DB design download failed';
+        statusEl.textContent = isGlobalDataflow ? 'Global markdown download failed' : 'DB design download failed';
       } finally {
         downloadDesignBtn.disabled = false;
         downloadDesignBtn.textContent = prevText;
@@ -1715,11 +2115,24 @@
         globalMeta.textContent = `Instances: ${instances.length} | Live API connected`;
         let firstAction = null;
 
+        globalViewDefs.forEach(([key, label]) => {
+          const btn = document.createElement('button');
+          btn.className = 'leaf';
+          btn.textContent = label;
+          btn.addEventListener('click', () => loadGlobalDataflow(btn));
+          tree.appendChild(btn);
+          viewButtonMap.set(`global::${key}`, btn);
+          if (targetView === key) {
+            firstAction = () => btn.click();
+          }
+        });
+
         instances.forEach((inst, idx) => {
           const name = String(inst.name || 'instance');
           const details = document.createElement('details');
           const isTarget = targetInstance && name.toLowerCase() === targetInstance;
           details.open = isTarget || (!targetInstance && idx === 0);
+          instanceDetailsMap.set(name.toLowerCase(), details);
 
           const summary = document.createElement('summary');
           summary.textContent = name;
@@ -1730,14 +2143,15 @@
             btn.className = 'leaf';
             btn.textContent = label;
             btn.addEventListener('click', () => loadView(name, key, btn));
+            viewButtonMap.set(`${name.toLowerCase()}::${key}`, btn);
             details.appendChild(btn);
 
             const shouldDefault = isTarget
               ? key === targetView
-              : (!targetInstance && idx === 0 && key === 'overview');
+              : (!targetInstance && targetView !== 'global_dataflow' && idx === 0 && key === 'overview');
             if (shouldDefault) {
               firstAction = () => btn.click();
-            } else if (!firstAction && idx === 0 && jdx === 0) {
+            } else if (!firstAction && targetView !== 'global_dataflow' && idx === 0 && jdx === 0) {
               firstAction = () => btn.click();
             }
           });

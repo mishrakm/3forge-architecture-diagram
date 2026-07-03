@@ -551,6 +551,64 @@ def fetch_trigger_details(cursor: Any, trigger_rows: list[tuple[Any, ...]]) -> l
     return details
 
 
+def sort_trigger_flows_by_dependency(flows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    produced_tables = {
+        str(flow["output_table"])
+        for flow in flows
+        if flow.get("output_table")
+    }
+
+    def normalized_inputs(flow: dict[str, Any]) -> list[str]:
+        return [str(value) for value in (flow.get("input_tables") or []) if value]
+
+    output_producer: dict[str, int] = {}
+    for index, flow in enumerate(flows):
+        output_table = str(flow["output_table"]) if flow.get("output_table") else ""
+        if output_table and output_table not in output_producer:
+            output_producer[output_table] = index
+
+    edges: dict[int, list[int]] = {index: [] for index in range(len(flows))}
+    indegree = [0] * len(flows)
+    for index, flow in enumerate(flows):
+        for input_table in normalized_inputs(flow):
+            producer = output_producer.get(input_table)
+            if producer is None or producer == index:
+                continue
+            edges[producer].append(index)
+            indegree[index] += 1
+
+    def sort_key(index: int) -> tuple[str, float, str]:
+        flow = flows[index]
+        external_inputs = [table for table in normalized_inputs(flow) if table not in produced_tables]
+        first_external = external_inputs[0].lower() if external_inputs else ""
+        priority_value = flow.get("priority")
+        try:
+            priority_number = float(priority_value)
+        except (TypeError, ValueError):
+            priority_number = float("inf")
+        trigger_name = str(flow.get("trigger") or "").lower()
+        return first_external, priority_number, trigger_name
+
+    ready = sorted((index for index, degree in enumerate(indegree) if degree == 0), key=sort_key)
+    ordered_indices: list[int] = []
+    while ready:
+        current = ready.pop(0)
+        ordered_indices.append(current)
+        next_ready: list[int] = []
+        for dependent in edges[current]:
+            indegree[dependent] -= 1
+            if indegree[dependent] == 0:
+                next_ready.append(dependent)
+        if next_ready:
+            ready = sorted(ready + next_ready, key=sort_key)
+
+    if len(ordered_indices) != len(flows):
+        remaining = [index for index in range(len(flows)) if index not in set(ordered_indices)]
+        ordered_indices.extend(sorted(remaining, key=sort_key))
+
+    return [flows[index] for index in ordered_indices]
+
+
 def derive_trigger_flows(trigger_details: list[dict[str, Any]]) -> list[dict[str, Any]]:
     flows: list[dict[str, Any]] = []
     for trg in trigger_details:
@@ -566,7 +624,7 @@ def derive_trigger_flows(trigger_details: list[dict[str, Any]]) -> list[dict[str
                 "priority": trg["priority"],
             }
         )
-    return flows
+    return sort_trigger_flows_by_dependency(flows)
 
 
 def fetch_procedure_details(cursor: Any, procedure_rows: list[tuple[Any, ...]]) -> list[dict[str, Any]]:

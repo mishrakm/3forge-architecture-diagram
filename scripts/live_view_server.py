@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from document_tables import (
     DEFAULTS,
@@ -25,6 +25,7 @@ from document_tables import (
     collect_instance_snapshot,
     connect_db,
     derive_trigger_flows,
+    extract_trigger_use_option,
     fetch_procedure_details,
     fetch_show_centers,
     fetch_show_datasources,
@@ -419,6 +420,517 @@ def query_section(instance_cfg: dict[str, Any], args: argparse.Namespace, sectio
             cursor.close()
         if connection is not None:
             connection.close()
+
+
+def _append_search_match(
+    matches: list[dict[str, Any]],
+    *,
+    needle: str,
+    instance_name: str,
+    object_type: str,
+    object_name: str | None,
+    view: str,
+    summary: str | None = None,
+) -> None:
+    if not object_name:
+        return
+    haystacks = [object_name]
+    if summary:
+        haystacks.append(summary)
+    if not any(needle in str(value).lower() for value in haystacks if value is not None):
+        return
+    exact = str(object_name).lower() == needle
+    matches.append(
+        {
+            "instance": instance_name,
+            "object_type": object_type,
+            "name": object_name,
+            "view": view,
+            "summary": summary,
+            "exact_match": exact,
+        }
+    )
+
+
+def _normalize_alias(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    if not text:
+        return ""
+    return re.sub(r"[^a-z0-9]+", "", text)
+
+
+def _extract_port(value: Any) -> int | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    match = re.search(r":(\d+)$", text)
+    if match:
+        return int(match.group(1))
+    if text.isdigit():
+        return int(text)
+    return None
+
+
+def _instance_aliases(instance_cfg: dict[str, Any], fallback_name: str) -> set[str]:
+    aliases: set[str] = set()
+
+    def add(value: Any) -> None:
+        normalized = _normalize_alias(value)
+        if normalized:
+            aliases.add(normalized)
+
+    name = str(instance_cfg.get("name") or fallback_name)
+    app_code = str(instance_cfg.get("app_code") or "")
+    add(name)
+    add(app_code)
+    add(str(instance_cfg.get("url") or ""))
+    if app_code:
+        add(app_code.removeprefix("ami_"))
+        add(app_code.removesuffix("_app"))
+        trimmed = app_code.removeprefix("ami_").removesuffix("_app")
+        add(trimmed)
+    if name:
+        add(name.replace(" app", ""))
+        add(name.replace(" ", ""))
+    return aliases
+
+
+def _build_instance_resolution_maps(app: AppContext) -> tuple[dict[str, str], dict[str, str]]:
+    alias_to_instance: dict[str, str] = {}
+    relay_port_to_instance: dict[str, str] = {}
+    for key, cfg in sorted(app.instance_map.items()):
+        instance_name = str(cfg.get("name") or cfg.get("url") or key)
+        for alias in _instance_aliases(cfg, instance_name):
+            alias_to_instance.setdefault(alias, instance_name)
+        port = cfg.get("port")
+        if port is None:
+            port = _extract_port(cfg.get("url"))
+        try:
+            port_int = int(port) if port is not None else None
+        except (TypeError, ValueError):
+            port_int = None
+        if port_int is not None:
+            relay_port_to_instance.setdefault(str(port_int + 9), instance_name)
+            alias_to_instance.setdefault(_normalize_alias(f"localhost:{port_int}"), instance_name)
+    return alias_to_instance, relay_port_to_instance
+
+
+def _resolve_instance_name(value: Any, alias_to_instance: dict[str, str]) -> str | None:
+    normalized = _normalize_alias(value)
+    if not normalized:
+        return None
+    if normalized in alias_to_instance:
+        return alias_to_instance[normalized]
+    for alias, instance_name in alias_to_instance.items():
+        if normalized == alias or normalized in alias or alias in normalized:
+            return instance_name
+    return None
+
+
+def _make_global_node(node_id: str, label: str, node_type: str) -> dict[str, str]:
+    return {"id": node_id, "label": label, "type": node_type}
+
+
+def query_global_dataflow(app: AppContext) -> dict[str, Any]:
+    started = time.time()
+    alias_to_instance, relay_port_to_instance = _build_instance_resolution_maps(app)
+    nodes: dict[str, dict[str, str]] = {}
+    edges: list[dict[str, Any]] = []
+    errors: list[dict[str, str]] = []
+    edge_type_counts = {"replication": 0, "relay": 0, "datasource": 0}
+
+    def ensure_instance_node(instance_name: str) -> str:
+      node_id = f"instance:{instance_name}"
+      nodes.setdefault(node_id, _make_global_node(node_id, instance_name, "instance"))
+      return node_id
+
+    def ensure_external_node(kind: str, label: str) -> str:
+      node_id = f"{kind}:{label}"
+      nodes.setdefault(node_id, _make_global_node(node_id, label, kind))
+      return node_id
+
+    def add_edge(source_id: str, target_id: str, edge_type: str, label: str, detail: str, status: str | None = None) -> None:
+      edges.append(
+          {
+              "source": source_id,
+              "target": target_id,
+              "type": edge_type,
+              "label": label,
+              "detail": detail,
+              "status": status or "",
+          }
+      )
+      edge_type_counts[edge_type] += 1
+
+    for key, instance_cfg in sorted(app.instance_map.items()):
+        instance_name = str(instance_cfg.get("name") or instance_cfg.get("url") or key)
+        target_node_id = ensure_instance_node(instance_name)
+        connection = None
+        cursor = None
+        try:
+            connection = _make_connection(instance_cfg, app.generator_args)
+            cursor = connection.cursor()
+
+            replications = normalize_rows(fetch_show_replications(cursor))
+            for row in replications:
+                if not row:
+                    continue
+                remote_name = str(row[0]) if len(row) > 0 and row[0] is not None else ""
+                local_name = str(row[1]) if len(row) > 1 and row[1] is not None else ""
+                center_name = str(row[2]) if len(row) > 2 and row[2] is not None else ""
+                center_table = str(row[3]) if len(row) > 3 and row[3] is not None else ""
+                status = str(row[7]) if len(row) > 7 and row[7] is not None else ""
+                source_instance = _resolve_instance_name(center_name, alias_to_instance)
+                source_label = source_instance or center_name or remote_name or "external center"
+                source_node_id = ensure_instance_node(source_label) if source_instance else ensure_external_node("center", source_label)
+                detail = " -> ".join(value for value in [remote_name or center_table, local_name or center_table] if value)
+                add_edge(source_node_id, target_node_id, "replication", "Replication", detail or center_name or remote_name, status)
+
+            trigger_rows = fetch_show_triggers(cursor)
+            trigger_details = fetch_trigger_details(cursor, trigger_rows)
+            for trg in trigger_details:
+                if str(trg.get("type") or "").upper() != "RELAY":
+                    continue
+                relay_port = str(trg.get("relay_port") or "").strip()
+                target_instance = relay_port_to_instance.get(relay_port)
+                target_label = target_instance or f"relay:{trg.get('relay_host') or 'unknown'}:{relay_port or '?'}"
+                relay_target_node_id = ensure_instance_node(target_label) if target_instance else ensure_external_node("relay", target_label)
+                target_name = extract_trigger_use_option(trg.get("ddl") or trg.get("options_preview"), "target") or str(trg.get("output_table") or "")
+                input_label = ", ".join(str(v) for v in (trg.get("input_tables") or []) if v)
+                detail = " -> ".join(value for value in [input_label, target_name] if value)
+                add_edge(target_node_id, relay_target_node_id, "relay", str(trg.get("name") or "Relay Trigger"), detail or str(trg.get("name") or "relay"), "ENABLED" if trg.get("enabled") else "DISABLED")
+
+            datasources = normalize_rows(fetch_show_datasources(cursor))
+            for row in datasources:
+                if not row:
+                    continue
+                ds_name = str(row[0]) if len(row) > 0 and row[0] is not None else ""
+                ds_url = str(row[2]) if len(row) > 2 and row[2] is not None else ""
+                if ds_name.strip().lower() == "ami":
+                    continue
+                resolved_instance = _resolve_instance_name(ds_url, alias_to_instance)
+                if resolved_instance == instance_name:
+                    continue
+                source_node_id = ensure_instance_node(resolved_instance) if resolved_instance else ensure_external_node("datasource", ds_name or ds_url or "datasource")
+                detail = ds_url or ds_name or "datasource"
+                add_edge(source_node_id, target_node_id, "datasource", ds_name or "Datasource", detail)
+        except Exception as exc:  # noqa: BLE001
+            errors.append({"instance": instance_name, "error": str(exc)})
+        finally:
+            if cursor is not None:
+                cursor.close()
+            if connection is not None:
+                connection.close()
+
+    edges.sort(
+        key=lambda edge: (
+            str(nodes.get(edge["source"], {}).get("label") or "").lower(),
+            str(edge.get("type") or "").lower(),
+            str(edge.get("label") or "").lower(),
+            str(nodes.get(edge["target"], {}).get("label") or "").lower(),
+        )
+    )
+    tree = _build_global_dataflow_tree(list(nodes.values()), edges)
+    return {
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "elapsed_ms": int((time.time() - started) * 1000),
+        "searched_instances": len(app.instance_map),
+        "error_count": len(errors),
+        "errors": errors,
+        "summary": {
+            "instances": sum(1 for node in nodes.values() if node["type"] == "instance"),
+            "external_nodes": sum(1 for node in nodes.values() if node["type"] != "instance"),
+            "edges": len(edges),
+            "replications": edge_type_counts["replication"],
+            "relays": edge_type_counts["relay"],
+            "datasources": edge_type_counts["datasource"],
+        },
+        "nodes": list(nodes.values()),
+        "edges": edges,
+        "tree": tree,
+    }
+
+
+def _build_global_dataflow_tree(
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    node_map = {str(node.get("id") or ""): node for node in nodes}
+    grouped: dict[str, dict[str, Any]] = {}
+
+    for edge in edges:
+        source_id = str(edge.get("source") or "")
+        target_id = str(edge.get("target") or "")
+        source_node = node_map.get(source_id, {"id": source_id, "label": source_id, "type": "external"})
+        target_node = node_map.get(target_id, {"id": target_id, "label": target_id, "type": "external"})
+        source_key = str(source_node.get("id") or source_node.get("label") or source_id)
+        source_entry = grouped.setdefault(
+            source_key,
+            {
+                "source_id": source_node.get("id") or source_id,
+                "source_label": source_node.get("label") or source_id,
+                "source_type": source_node.get("type") or "external",
+                "edge_count": 0,
+                "targets": {},
+            },
+        )
+        source_entry["edge_count"] += 1
+
+        target_key = str(target_node.get("id") or target_node.get("label") or target_id)
+        target_entry = source_entry["targets"].setdefault(
+            target_key,
+            {
+                "target_id": target_node.get("id") or target_id,
+                "target_label": target_node.get("label") or target_id,
+                "target_type": target_node.get("type") or "external",
+                "edge_count": 0,
+                "links": [],
+            },
+        )
+        target_entry["edge_count"] += 1
+        target_entry["links"].append(
+            {
+                "type": edge.get("type") or "",
+                "label": edge.get("label") or edge.get("type") or "",
+                "detail": edge.get("detail") or "",
+                "status": edge.get("status") or "",
+            }
+        )
+
+    tree: list[dict[str, Any]] = []
+    for source in grouped.values():
+        targets = list(source.pop("targets").values())
+        for target in targets:
+            target["links"].sort(
+                key=lambda link: (
+                    str(link.get("type") or "").lower(),
+                    str(link.get("label") or "").lower(),
+                    str(link.get("detail") or "").lower(),
+                )
+            )
+        targets.sort(
+            key=lambda target: (
+                str(target.get("target_label") or "").lower(),
+                str(target.get("target_type") or "").lower(),
+            )
+        )
+        source["targets"] = targets
+        tree.append(source)
+
+    tree.sort(
+        key=lambda source: (
+            str(source.get("source_label") or "").lower(),
+            str(source.get("source_type") or "").lower(),
+        )
+    )
+    return tree
+
+
+def _build_global_dataflow_markdown(payload: dict[str, Any]) -> str:
+    summary = payload.get("summary") or {}
+    tree = payload.get("tree") or []
+    errors = payload.get("errors") or []
+    lines = [
+        "# Global Dataflow",
+        "",
+        f"Generated (UTC): {payload.get('generated_at_utc') or '-'}",
+        f"Searched instances: {payload.get('searched_instances') or 0}",
+        f"Elapsed (ms): {payload.get('elapsed_ms') or 0}",
+        "",
+        "## Summary",
+        "",
+        f"- Instances: {summary.get('instances') or 0}",
+        f"- External nodes: {summary.get('external_nodes') or 0}",
+        f"- Edges: {summary.get('edges') or 0}",
+        f"- Replications: {summary.get('replications') or 0}",
+        f"- Relays: {summary.get('relays') or 0}",
+        f"- Datasources: {summary.get('datasources') or 0}",
+        f"- Errors: {payload.get('error_count') or 0}",
+        "",
+        "## Dependency Tree",
+        "",
+    ]
+
+    if not tree:
+        lines.append("- No cross-instance dependencies found.")
+    else:
+        for source in tree:
+            source_label = str(source.get("source_label") or "-")
+            source_type = str(source.get("source_type") or "external")
+            source_edges = int(source.get("edge_count") or 0)
+            lines.append(f"- {source_label} [{source_type}] ({source_edges} edges)")
+            for target in source.get("targets") or []:
+                target_label = str(target.get("target_label") or "-")
+                target_type = str(target.get("target_type") or "external")
+                target_edges = int(target.get("edge_count") or 0)
+                lines.append(f"  - {target_label} [{target_type}] ({target_edges} links)")
+                for link in target.get("links") or []:
+                    label = str(link.get("label") or link.get("type") or "transport")
+                    detail = str(link.get("detail") or "")
+                    status = str(link.get("status") or "")
+                    suffix_parts = []
+                    if detail:
+                        suffix_parts.append(detail)
+                    if status:
+                        suffix_parts.append(status)
+                    suffix = f" - {' | '.join(suffix_parts)}" if suffix_parts else ""
+                    lines.append(f"    - {label}{suffix}")
+
+    if errors:
+        lines.extend(["", "## Errors", ""])
+        for error in errors:
+            lines.append(f"- {error.get('instance') or '-'}: {error.get('error') or '-'}")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def query_global_dataflow_markdown(app: AppContext) -> tuple[str, str]:
+    payload = query_global_dataflow(app)
+    filename = f"global_dataflow_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.md"
+    return filename, _build_global_dataflow_markdown(payload)
+
+
+def query_global_object_search(app: AppContext, query: str, limit: int = 250) -> dict[str, Any]:
+    needle = query.strip().lower()
+    if not needle:
+        raise ValueError("Missing search query")
+
+    started = time.time()
+    results: list[dict[str, Any]] = []
+    errors: list[dict[str, str]] = []
+
+    for key, instance_cfg in sorted(app.instance_map.items()):
+        instance_name = str(instance_cfg.get("name") or instance_cfg.get("url") or key)
+        connection = None
+        cursor = None
+        try:
+            connection = _make_connection(instance_cfg, app.generator_args)
+            cursor = connection.cursor()
+
+            for row in fetch_show_tables(cursor):
+                name = str(row[0]) if row and row[0] is not None else ""
+                _append_search_match(
+                    results,
+                    needle=needle,
+                    instance_name=instance_name,
+                    object_type="table",
+                    object_name=name,
+                    view="tables",
+                )
+
+            for row in fetch_show_triggers(cursor):
+                name = str(row[0]) if row and row[0] is not None else ""
+                table_chain = str(row[1]) if len(row) > 1 and row[1] is not None else None
+                trigger_type = str(row[2]) if len(row) > 2 and row[2] is not None else None
+                _append_search_match(
+                    results,
+                    needle=needle,
+                    instance_name=instance_name,
+                    object_type="trigger",
+                    object_name=name,
+                    view="trigger_flows",
+                    summary=" | ".join(v for v in [trigger_type, table_chain] if v),
+                )
+
+            for row in fetch_show_procedures(cursor):
+                name = str(row[0]) if row and row[0] is not None else ""
+                procedure_type = str(row[1]) if len(row) > 1 and row[1] is not None else ""
+                owner = str(row[5]) if len(row) > 5 and row[5] is not None else None
+                object_type = "method" if procedure_type.upper() == "METHOD" else "procedure"
+                view = "method_details" if object_type == "method" else "procedure_details"
+                _append_search_match(
+                    results,
+                    needle=needle,
+                    instance_name=instance_name,
+                    object_type=object_type,
+                    object_name=name,
+                    view=view,
+                    summary=" | ".join(v for v in [procedure_type, owner] if v),
+                )
+
+            try:
+                cursor.execute("show methods")
+                method_columns = [str(d[0]) for d in (cursor.description or [])]
+                for row in cursor.fetchall():
+                    if not row:
+                        continue
+                    first_col = str(row[0]) if row[0] is not None else ""
+                    if first_col.startswith("__"):
+                        continue
+                    row_dict: dict[str, Any] = {}
+                    for index, value in enumerate(row):
+                        key_name = method_columns[index] if index < len(method_columns) and method_columns[index] else f"col_{index + 1}"
+                        row_dict[key_name] = value
+                    method_name = str(row_dict.get("MethodName") or row_dict.get("methodname") or row_dict.get("name") or first_col)
+                    return_type = str(row_dict.get("ReturnType") or row_dict.get("returntype") or "")
+                    target_type = str(row_dict.get("TargetType") or row_dict.get("targettype") or "")
+                    _append_search_match(
+                        results,
+                        needle=needle,
+                        instance_name=instance_name,
+                        object_type="method",
+                        object_name=method_name,
+                        view="method_details",
+                        summary=" | ".join(v for v in [target_type, return_type] if v),
+                    )
+            except Exception:
+                pass
+
+            for row in fetch_show_timers(cursor):
+                name = str(row[0]) if row and row[0] is not None else ""
+                timer_type = str(row[1]) if len(row) > 1 and row[1] is not None else None
+                schedule = str(row[3]) if len(row) > 3 and row[3] is not None else None
+                _append_search_match(
+                    results,
+                    needle=needle,
+                    instance_name=instance_name,
+                    object_type="timer",
+                    object_name=name,
+                    view="timer_details",
+                    summary=" | ".join(v for v in [timer_type, schedule] if v),
+                )
+
+            for row in fetch_show_datasources(cursor):
+                name = str(row[0]) if row and row[0] is not None else ""
+                adapter = str(row[1]) if len(row) > 1 and row[1] is not None else None
+                url = str(row[2]) if len(row) > 2 and row[2] is not None else None
+                _append_search_match(
+                    results,
+                    needle=needle,
+                    instance_name=instance_name,
+                    object_type="datasource",
+                    object_name=name,
+                    view="datasources",
+                    summary=" | ".join(v for v in [adapter, url] if v),
+                )
+        except Exception as exc:  # noqa: BLE001
+            errors.append({"instance": instance_name, "error": str(exc)})
+        finally:
+            if cursor is not None:
+                cursor.close()
+            if connection is not None:
+                connection.close()
+
+    results.sort(
+        key=lambda item: (
+            0 if item.get("exact_match") else 1,
+            str(item.get("name") or "").lower(),
+            str(item.get("object_type") or "").lower(),
+            str(item.get("instance") or "").lower(),
+        )
+    )
+    limited_results = results[: max(1, limit)]
+    return {
+        "query": query,
+        "count": len(limited_results),
+        "total_matches": len(results),
+        "searched_instances": len(app.instance_map),
+        "error_count": len(errors),
+        "errors": errors,
+        "elapsed_ms": int((time.time() - started) * 1000),
+        "results": limited_results,
+    }
 
 
 _SAFE_NAME_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_.]*$')
@@ -1027,7 +1539,7 @@ class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         if parsed.path.startswith("/api/"):
-            self.handle_api(parsed.path)
+            self.handle_api(parsed)
             return
         super().do_GET()
 
@@ -1110,8 +1622,9 @@ class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as exc:  # noqa: BLE001
             self.write_json(500, {"error": str(exc)})
 
-    def handle_api(self, path: str) -> None:
+    def handle_api(self, parsed) -> None:
         try:
+            path = parsed.path
             if path == "/api/health":
                 self.write_json(200, {"status": "ok"})
                 return
@@ -1131,6 +1644,27 @@ class LiveRequestHandler(http.server.SimpleHTTPRequestHandler):
                     for key, cfg in sorted(self.app.instance_map.items())
                 ]
                 self.write_json(200, {"instances": rows})
+                return
+
+            if path == "/api/global_dataflow":
+                result = query_global_dataflow(self.app)
+                self.write_json(200, result)
+                return
+
+            if path == "/api/global_dataflow_markdown":
+                filename, markdown = query_global_dataflow_markdown(self.app)
+                self.write_text(200, markdown, "text/markdown; charset=utf-8", filename=filename)
+                return
+
+            if path == "/api/global_search":
+                params = parse_qs(parsed.query or "")
+                query = str((params.get("q") or [""])[0])
+                try:
+                    limit = int(str((params.get("limit") or ["250"])[0]))
+                except ValueError:
+                    limit = 250
+                result = query_global_object_search(self.app, query, limit=limit)
+                self.write_json(200, result)
                 return
 
             prefix = "/api/instance/"
