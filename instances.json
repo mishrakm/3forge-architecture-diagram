@@ -195,6 +195,28 @@
       "center_id": "25101",
       "mode": "relay+center",
       "password_encrypted": "enc:v1:T62dq5mdRmHno_JX9f6nc4ZKPPU2n5BIhQiphWfKCKoiJmEe4nwm6xtUNw5YUEL8zmIlnqOGTHFGcsJd9gpQFmh7_NQW4Q_OVHY="
+    },
+    {
+      "user": "pwadmin",
+      "jar_path": "./out.jar",
+      "app_code": "ami_trade_history",
+      "port": 22280,
+      "name": "Trade History",
+      "url": "jdbc:amisql:125.125.126.5:22280",
+      "center_id": "25101",
+      "mode": "center+relay",
+      "password_encrypted": "enc:v1:MODIEKHeRtwRisWGyIVGDUNI7v6XAJl_tUcxr6iJLqp_ulpr6wSTnOpX_yxhYEiAz_LrmdMCDW_XgVnk7Lv4UyzhxuDAi7g5mbk="
+    },
+    {
+      "user": "pwadmin",
+      "jar_path": "./out.jar",
+      "app_code": "ami_frontend",
+      "port": 21280,
+      "name": "Frontend",
+      "url": "jdbc:amisql:125.125.126.5:21280",
+      "center_id": "25101",
+      "mode": "relay+center",
+      "password_encrypted": "enc:v1:MODIEKHeRtwRisWGyIVGDUNI7v6XAJl_tUcxr6iJLqp_ulpr6wSTnOpX_yxhYEiAz_LrmdMCDW_XgVnk7Lv4UyzhxuDAi7g5mbk="
     }
   ]
 }
