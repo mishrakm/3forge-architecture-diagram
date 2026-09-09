@@ -1,6 +1,8 @@
 # Production deployment — 3Forge DB manager
 
-AMI JDBC table/trigger/procedure browser and live viewer (formerly architecture-diagram). Dashboard on port **18092**.
+AMI JDBC table/trigger/procedure browser and live viewer. Dashboard on port **18092**.
+
+GitLab: `https://pwgit.centralindia.cloudapp.azure.com/3forge/3forge-db-manager.git`
 
 ## Where it runs
 

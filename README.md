@@ -1,4 +1,8 @@
-# AMI Flow Viewer
+# 3Forge DB Manager
+
+AMI JDBC table/trigger/procedure browser and live viewer. Dashboard on port **18092**.
+
+GitLab: `https://pwgit.centralindia.cloudapp.azure.com/3forge/3forge-db-manager.git`
 
 ## DB Documentation Script
 
