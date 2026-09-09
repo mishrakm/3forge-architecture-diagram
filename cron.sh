@@ -1,1 +1,1 @@
-cd /home/3forge/3forge-architecture-diagram && mkdir -p logs && nohup /usr/bin/python3.13 scripts/live_view_server.py --host 0.0.0.0 --port 18092 --dir web --instances-config instances.json --adapter jdbc >> /home/3forge/3forge-architecture-diagram/logs/live_view_server.log 2>&1 &
+cd /home/projects/3forge-db-manager && mkdir -p logs && nohup /usr/bin/python3.13 scripts/live_view_server.py --host 0.0.0.0 --port 18092 --dir web --instances-config instances.json --adapter jdbc >> /home/projects/3forge-db-manager/logs/live_view_server.log 2>&1 &

@@ -12,9 +12,9 @@ Requirements:
 Run:
 
 ```bash
-cd /home/3forge/3forge-architecture-diagram
+cd /home/projects/3forge-db-manager
 export AMI_DB_PASSWORD='your-password'
-/home/3forge/3forge-architecture-diagram/.venv/bin/python scripts/document_tables.py
+/home/projects/3forge-db-manager/.venv/bin/python scripts/document_tables.py
 ```
 
 Outputs:
@@ -37,8 +37,8 @@ Use a JSON config to aggregate many AMI instances (up to 20 by default) in one p
 Run:
 
 ```bash
-cd /home/3forge/3forge-architecture-diagram
-AMI_DB_PASSWORD='pwadmin123' /home/3forge/3forge-architecture-diagram/.venv/bin/python scripts/document_tables.py \
+cd /home/projects/3forge-db-manager
+AMI_DB_PASSWORD='pwadmin123' /home/projects/3forge-db-manager/.venv/bin/python scripts/document_tables.py \
 	--instances-config ./instances.json \
 	--output-multi-dashboard ./web/ami_flow_viewer.html \
 	--output-multi-json ./docs/generated/ami_flow_viewer.json
@@ -68,8 +68,8 @@ Config format (`instances.json`):
 If you want to open dashboard assets through HTTP with permissive CORS headers:
 
 ```bash
-cd /home/3forge/3forge-architecture-diagram
-/home/3forge/3forge-architecture-diagram/.venv/bin/python scripts/cors_server.py --port 8080 --dir web
+cd /home/projects/3forge-db-manager
+/home/projects/3forge-db-manager/.venv/bin/python scripts/cors_server.py --port 8080 --dir web
 ```
 
 Then open:
@@ -82,9 +82,9 @@ Use this mode when you want the dashboard to query AMI on-demand for each click 
 Run:
 
 ```bash
-cd /home/3forge/3forge-architecture-diagram
+cd /home/projects/3forge-db-manager
 export AMI_DB_PASSWORD='your-password'
-/home/3forge/3forge-architecture-diagram/.venv/bin/python scripts/live_view_server.py \
+/home/projects/3forge-db-manager/.venv/bin/python scripts/live_view_server.py \
 	--port 8080 \
 	--dir web \
 	--instances-config ./instances.json
@@ -109,7 +109,7 @@ This server adds:
 Run data refresh + CORS server together:
 
 ```bash
-cd /home/3forge/3forge-architecture-diagram
+cd /home/projects/3forge-db-manager
 AMI_DB_PASSWORD='pwadmin123' ./scripts/bin/start_dashboard.sh
 ```
 
@@ -120,27 +120,10 @@ Options:
 - `PORT=8090 ./scripts/bin/start_dashboard.sh` to change port.
 - `SKIP_REFRESH=1 ./scripts/bin/start_dashboard.sh` to serve existing docs without querying DB.
 
-## Git Sync With All Remotes
-
-This repository is configured to use:
-- `origin` -> `https://pwgit.centralindia.cloudapp.azure.com/3forge/3forge-architecture-diagram.git`
-- `github` -> `https://github.com/mishrakm/3forge-architecture-diagram.git`
-
-Single-command full sync (fetch all + pull upstream + push both remotes):
-
-```bash
-cd /home/3forge/3forge-architecture-diagram
-./scripts/bin/sync_all_remotes.sh
-```
-
-Notes:
-- Current branch `main` tracks `origin/release`.
-- Local push behavior is set to `push.default=upstream` to keep sync compatible with this mapping.
-
 Optional flags:
 
 ```bash
-/home/3forge/3forge-architecture-diagram/.venv/bin/python scripts/document_tables.py \
+/home/projects/3forge-db-manager/.venv/bin/python scripts/document_tables.py \
 	--url 'jdbc:amisql:125.125.126.5:3280' \
 	--user 'pwadmin' \
 	--password '***' \
